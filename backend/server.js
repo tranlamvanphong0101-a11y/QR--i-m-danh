@@ -566,20 +566,16 @@ function validateAttendance(req, res, next) {
 }
 
 app.post("/mark-attendance", validateAttendance, async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
   try {
     const { universityRollNo, deviceFingerprint, location } = req.body;
     const today = new Date().toISOString().split('T')[0];
 
     const [existing, existingDevice] = await Promise.all([
-      Attendance.findOne({ universityRollNo, date: today }).session(session),
-      Attendance.findOne({ deviceFingerprint, date: today }).session(session)
+      Attendance.findOne({ universityRollNo, date: today }),
+      Attendance.findOne({ deviceFingerprint, date: today })
     ]);
 
     if (existing) {
-      await session.abortTransaction();
-      session.endSession();
       return res.status(400).json({
         status: "error",
         message: "You've already marked attendance today"
@@ -587,8 +583,6 @@ app.post("/mark-attendance", validateAttendance, async (req, res) => {
     }
 
     if (existingDevice) {
-      await session.abortTransaction();
-      session.endSession();
       return res.status(400).json({
         status: "error",
         message: "This device has already been used to mark attendance today"
@@ -601,8 +595,6 @@ app.post("/mark-attendance", validateAttendance, async (req, res) => {
     );
 
     if (distance > MAX_DISTANCE_METERS) {
-      await session.abortTransaction();
-      session.endSession();
       return res.status(400).json({
         status: "error",
         message: `You must be within ${MAX_DISTANCE_METERS} meters of the classroom to mark attendance. Current distance: ${distance.toFixed(0)}m`
@@ -618,34 +610,28 @@ app.post("/mark-attendance", validateAttendance, async (req, res) => {
           classRollNo: req.body.classRollNo
         }
       },
-      { new: true, upsert: true, session }
+      { new: true, upsert: true }
     );
 
-    const attendance = await Attendance.create([{
+    const attendance = await Attendance.create({
       ...req.body,
       date: today,
       time: new Date().toLocaleTimeString('en-IN', { hour12: false }),
       status: "present",
       studentId: student._id,
       distanceFromClass: distance
-    }], { session });
+    });
 
-    await session.commitTransaction();
-    session.endSession();
     res.json({
       status: "success",
       message: "Attendance marked successfully",
-      data: attendance[0]
+      data: attendance
     });
   } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
     console.error("Attendance error:", error);
     res.status(500).json({ status: "error", message: error.message });
   }
 });
-
-app.get('/api/students/profile', async (req, res) => {
     try {
         const { rollNo } = req.query;
         console.log(`[PROFILE] Attempting to find profile for rollNo: ${rollNo}`); // ADD THIS
