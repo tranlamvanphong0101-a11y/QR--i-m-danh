@@ -47,11 +47,12 @@ requiredEnvVars.forEach(envVar => {
 });
 
 const app = express();
+app.set('trust proxy', 1);
 
 // Configuration Constants
-const CLASS_LAT = 30.2679634;
-const CLASS_LNG = 77.991887;
-const MAX_DISTANCE_METERS = 10000000000000;
+const CLASS_LAT = 10.870;
+const CLASS_LNG = 106.799;
+const MAX_DISTANCE_METERS = 150;
 
 const QR_CODE_DIR = path.join(__dirname, '../frontend/public/qrcodes');
 
