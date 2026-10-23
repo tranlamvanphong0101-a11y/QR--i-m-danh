@@ -17,10 +17,11 @@ if (!fs.existsSync(QR_CODE_DIR)) {
     fs.mkdirSync(QR_CODE_DIR, { recursive: true });
 }
 
-async function generateQRCode(ipAddress) {
-    // Check cache first
-    if (ipCache.has(ipAddress)) {
-        const cached = ipCache.get(ipAddress);
+async function generateQRCode(ipAddress, lat, lng) {
+    // Check cache first (tách theo vị trí)
+    const cacheKey = `${ipAddress}|${Number(lat).toFixed(4)}|${Number(lng).toFixed(4)}`;
+    if (ipCache.has(cacheKey)) {
+        const cached = ipCache.get(cacheKey);
         if (Date.now() - cached.timestamp < CACHE_TIME) {
             return cached.data;
         }
@@ -54,6 +55,8 @@ async function generateQRCode(ipAddress) {
 
         activeSessions.set(sessionId, {
             ip: ipAddress,
+            lat,
+            lng,
             expiresAt: timestamp + QR_CODE_VALIDITY
         });
 
@@ -67,7 +70,7 @@ async function generateQRCode(ipAddress) {
             expiresIn: QR_CODE_VALIDITY // <<< MODIFIED: Added expiresIn
         };
 
-        ipCache.set(ipAddress, {
+        ipCache.set(cacheKey, {
             data: result,
             timestamp: Date.now()
         });
@@ -90,7 +93,15 @@ function validateSession(sessionId) {
     
     return true;
 }
-
+function getSessionInfo(sessionId) {
+    const session = activeSessions.get(sessionId);
+    if (!session) return null;
+    if (Date.now() > session.expiresAt) {
+        activeSessions.delete(sessionId);
+        return null;
+    }
+    return session;
+}
 function cleanupOldQRCodes() {
     const now = Date.now();
     fs.readdir(QR_CODE_DIR, (err, files) => {
@@ -119,5 +130,6 @@ cleanupOldQRCodes();
 
 module.exports = {
     generateQRCode,
-    validateSession
+    validateSession,
+    getSessionInfo
 };
