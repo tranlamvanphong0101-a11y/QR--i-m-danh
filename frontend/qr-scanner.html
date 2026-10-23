@@ -109,7 +109,14 @@
             document.getElementById('session-info').classList.add('hidden');
 
             try {
-                const response = await axios.get(`${API_BASE}/api/generate-qr`);
+                const pos = await new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(
+        p => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
+        () => reject(new Error('Hãy cho phép truy cập vị trí rồi bấm lại')),
+        { enableHighAccuracy: true, timeout: 15000 }
+    );
+});
+const response = await axios.get(`${API_BASE}/api/generate-qr`, { params: { lat: pos.lat, lng: pos.lng } });
                 const data = response.data;
                 
                 if (data.status === "success" && data.qrImage && data.sessionId && typeof data.expiresIn === 'number') {
