@@ -5,7 +5,7 @@ const crypto = require('crypto');
 
 // Configuration
 const QR_CODE_VALIDITY = 1.5 * 60 * 1000; // 1.5 minutes in ms
-const QR_CODE_DIR = process.env.QR_CODE_DIR || path.join(__dirname, 'public', 'qrcodes');
+const QR_CODE_DIR = process.env.QR_CODE_DIR || path.join(__dirname, '../frontend/public/qrcodes');
 const CACHE_TIME = 90000; // 90 seconds (1.5 minutes), corrected comment
 
 // Track active sessions and IP cache
@@ -35,7 +35,7 @@ async function generateQRCode(ipAddress) {
                          .update(sessionId + timestamp + secretKey)
                          .digest('hex');
 
-        const qrData = `http://localhost:5000/verify-attendance?data=${encodeURIComponent(JSON.stringify({
+        const qrData = `${process.env.RENDER_EXTERNAL_URL || 'http://localhost:5000'}/verify-attendance?data=${encodeURIComponent(JSON.stringify({
             sessionId,
             timestamp,
             hash
