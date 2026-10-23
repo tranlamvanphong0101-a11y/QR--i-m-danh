@@ -17,7 +17,7 @@ const Attendance = require("./models/Attendance");
 const StudentProfile = require("./models/StudentProfile");
 const studentProfileRoutes = require("./routes/studentProfile");
 const attendanceRoutes = require("./routes/attendance");
-const { generateQRCode, validateSession } = require('./qr-generator');
+const { generateQRCode, validateSession, getSessionInfo } = require('./qr-generator');
 
 // --- NEW: Import algorithm modules ---
 // Assuming these files exist in an 'algorithms' directory at the same level as server.js
@@ -365,7 +365,15 @@ app.get('/api/attendance/by-date', async (req, res) => {
 app.get("/api/generate-qr", qrLimiter, async (req, res) => {
   try {
     console.log(`Generating QR code for IP: ${req.ip}`);
-    const qrData = await generateQRCode(req.ip); // qrData will now include expiresIn
+    const lat = parseFloat(req.query.lat);
+const lng = parseFloat(req.query.lng);
+if (isNaN(lat) || isNaN(lng)) {
+  return res.status(400).json({
+    status: "error",
+    message: "Cần cho phép vị trí để tạo mã QR"
+  });
+}
+const qrData = await generateQRCode(req.ip, lat, lng);
     
     console.log(` Generated QR code at: ${qrData.qrImage}`);
     res.json({
@@ -585,13 +593,20 @@ app.post("/mark-attendance", validateAttendance, async (req, res) => {
     if (existingDevice) {
       return res.status(400).json({
         status: "error",
-        message: "This device has already been used to mark attendance today"
+        message: "Thiết bị này đã dùng để điểm danh hôm nay"
       });
     }
 
+        const sessionInfo = getSessionInfo(req.body.sessionId);
+    if (!sessionInfo) {
+      return res.status(400).json({
+        status: "error",
+        message: "Mã QR đã hết hạn, vui lòng quét lại"
+      });
+    }
     const distance = getDistanceFromLatLngInMeters(
       location.lat, location.lng,
-      CLASS_LAT, CLASS_LNG
+      sessionInfo.lat, sessionInfo.lng
     );
 
     if (distance > MAX_DISTANCE_METERS) {
