@@ -632,6 +632,7 @@ app.post("/mark-attendance", validateAttendance, async (req, res) => {
     res.status(500).json({ status: "error", message: error.message });
   }
 });
+app.get('/api/students/profile', async (req, res) => {
     try {
         const { rollNo } = req.query;
         console.log(`[PROFILE] Attempting to find profile for rollNo: ${rollNo}`); // ADD THIS
