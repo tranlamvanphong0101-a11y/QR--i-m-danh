@@ -50,7 +50,7 @@ async function generateDeviceFingerprint() {
         
         // Call Java implementation via API
         const fingerprintString = JSON.stringify(fingerprintData);
-        const response = await fetch('http://localhost:5000/api/consistent-hash', {
+        const response = await fetch('/api/consistent-hash', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -80,7 +80,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const form = document.getElementById("attendanceForm");
     const statusElement = document.getElementById("status");
     const submitButton = form.querySelector("button[type='submit']");
-    const API_ENDPOINT = "http://localhost:5000/mark-attendance";
+    const API_ENDPOINT = "/mark-attendance";
     let isSubmitting = false;
 
     // Dashboard button handler
@@ -107,7 +107,7 @@ document.addEventListener("DOMContentLoaded", () => {
         isSubmitting = true;
         
         try {
-            const validationResponse = await fetch('http://localhost:5000/api/validate-session', {
+            const validationResponse = await fetch('/api/validate-session', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
