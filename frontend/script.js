@@ -81,6 +81,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const statusElement = document.getElementById("status");
     const submitButton = form.querySelector("button[type='submit']");
     const API_ENDPOINT = "/mark-attendance";
+    const SHOW_DASHBOARD = false; // đổi thành true khi muốn cho sinh viên vào dashboard
     let isSubmitting = false;
 
     // Dashboard button handler
@@ -170,9 +171,11 @@ document.addEventListener("DOMContentLoaded", () => {
                             if (response.status === 400 && data.message === "Attendance already marked today") {
                                 statusElement.innerText = "You've already marked attendance today";
                                 statusElement.className = "text-center mt-4 text-sm text-yellow-600";
-                                // Still allow viewing dashboard
-                                window.location.href = `/dashboard.html?rollNo=${encodeURIComponent(universityRollNo)}`;
-                                return;
+                                        // Still allow viewing dashboard
+        if (SHOW_DASHBOARD) {
+            window.location.href = `/dashboard.html?rollNo=${encodeURIComponent(universityRollNo)}`;
+        }
+        return;
                             }
         
                             if (!response.ok) {
@@ -182,8 +185,13 @@ document.addEventListener("DOMContentLoaded", () => {
                             statusElement.innerText = data.message;
                             statusElement.className = `text-center mt-4 text-sm text-green-600`;
         
-                            // Redirect to dashboard with roll number
-                            window.location.href = `/dashboard.html?rollNo=${encodeURIComponent(universityRollNo)}`;
+                                    // Redirect to dashboard with roll number
+        if (SHOW_DASHBOARD) {
+            window.location.href = `/dashboard.html?rollNo=${encodeURIComponent(universityRollNo)}`;
+        } else {
+            statusElement.innerText = "✅ Điểm danh thành công!";
+            form.reset();
+        }
                         } catch (error) {
                             console.error("API error:", error);
                             statusElement.innerText = error.message;
