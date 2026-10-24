@@ -165,7 +165,9 @@
                 generateBtn.textContent = "Tạo mã QR";
             }
         }
-
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(() => {});
+        }
         document.addEventListener("DOMContentLoaded", () => {
             document.getElementById('generate-btn').addEventListener('click', generateQR);
         });
