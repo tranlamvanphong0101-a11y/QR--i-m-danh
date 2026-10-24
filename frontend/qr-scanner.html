@@ -77,6 +77,7 @@
                     </div>
                 </div>
             </div>
+            <p id="qr-tip" class="hidden mb-4 text-sm font-semibold text-indigo-800 bg-indigo-50 rounded-xl px-3 py-2">📍 Trước khi quét, hãy bật <b>Vị trí (GPS)</b> trên điện thoại. Khi trình duyệt hỏi, bấm <b>Cho phép</b>.</p>
 
             <div id="error-message" class="text-rose-600 font-medium mb-3 min-h-6 text-sm"></div>
 
@@ -213,6 +214,7 @@
     // Đổi giao diện phần mã QR: 'create' (đang chọn bán kính), 'live' (đang chiếu mã), 'closed' (đã đóng mã)
     function setQrView(mode) {
         var title = $('qr-title'), sub = $('qr-sub'), controls = $('qr-controls');
+        $('qr-tip').classList.add('hidden');
         if (mode === 'create') {
             title.textContent = 'Tạo mã QR điểm danh';
             sub.textContent = 'Chọn bán kính rồi bấm tạo mã để chiếu cho lớp';
@@ -222,6 +224,7 @@
             title.textContent = 'Sinh viên quét mã để điểm danh';
             sub.classList.add('hidden');
             controls.classList.add('hidden');
+            $('qr-tip').classList.remove('hidden');
         } else {
             title.textContent = 'Đã đóng mã QR';
             sub.textContent = 'Mã cũ còn hiệu lực tối đa vài chục giây';
