@@ -16,7 +16,7 @@
     <style>
         body {
             min-height: 100vh;
-            background: linear-gradient(135deg, #2563eb 0%, #6366f1 45%, #8b5cf6 100%);
+            background: radial-gradient(circle at 15% 10%, rgba(125,211,252,.55), transparent 45%), radial-gradient(circle at 90% 85%, rgba(196,181,253,.7), transparent 50%), linear-gradient(160deg, #3b82f6 0%, #6d5df6 55%, #8b5cf6 100%);
             background-attachment: fixed;
         }
         .card { background: #ffffff; }
@@ -31,9 +31,9 @@
         .field:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.18); }
         .spinner { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .qr-frame { padding: 6px; border-radius: 28px; background: linear-gradient(135deg, #22d3ee, #3b82f6, #8b5cf6); }
+        .qr-frame { padding: 6px; border-radius: 28px; background: linear-gradient(135deg, #7dd3fc, #6366f1, #a78bfa); }
         .step-dot { width: 2rem; height: 2rem; border-radius: 9999px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; background: #e5e7eb; color: #4b5563; }
-        .step-dot.active { background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: #fff; }
+        .step-dot.active { background: linear-gradient(135deg, #2563eb, #7c3aed); color: #fff; }
         .step-dot.done { background: #10b981; color: #fff; }
         .step-label { font-size: 0.72rem; color: #4b5563; margin-top: 0.25rem; font-weight: 600; }
         .step-label.active { color: #4338ca; }
@@ -87,7 +87,7 @@
             </div>
             <audio id="bgm" src="/nhac.mp3" loop preload="none"></audio>
             <button id="music-btn" type="button" class="hidden mx-auto mb-3 px-3 py-1.5 rounded-full bg-white border-2 border-indigo-200 text-sm font-semibold text-indigo-700">🔊 Nhạc: đang bật</button>
-            <button id="present-btn" type="button" class="hidden mx-auto mb-3 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-violet-500 text-white font-bold shadow hover:opacity-90 active:scale-95 transition">🖥️ Chế độ chiếu toàn màn hình</button>
+            <button id="present-btn" type="button" class="hidden mx-auto mb-3 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 text-white font-bold shadow hover:opacity-90 active:scale-95 transition">🖥️ Chế độ chiếu toàn màn hình</button>
             <p id="qr-tip" class="hidden mb-4 text-sm font-semibold text-indigo-800 bg-indigo-50 rounded-xl px-3 py-2">📍 Trước khi quét, hãy bật <b>Vị trí (GPS)</b> trên điện thoại. Khi trình duyệt hỏi, bấm <b>Cho phép</b>.</p>
 
             <div id="error-message" class="text-rose-600 font-medium mb-3 min-h-6 text-sm"></div>
@@ -109,7 +109,7 @@
             <input type="password" id="adminPassword" placeholder="🔒 Mật khẩu giảng viên" class="field mb-3">
 
             <button id="generate-btn"
-                class="w-full bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:opacity-90 active:scale-95 transition disabled:opacity-60">
+                class="w-full bg-gradient-to-r from-blue-600 to-violet-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:opacity-90 active:scale-95 transition disabled:opacity-60">
                 Tạo mã QR
             </button>
             <p class="text-xs text-gray-500 mt-3">📍 Cho phép vị trí: sinh viên phải ở gần bạn mới điểm danh được</p>
@@ -154,7 +154,7 @@
             <input type="file" id="rosterFile" accept=".xlsx" class="field mb-3">
 
             <button id="exportBtn"
-                class="w-full bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500 text-white font-bold py-3 rounded-xl shadow-lg hover:opacity-90 active:scale-95 transition disabled:opacity-60">
+                class="w-full bg-gradient-to-r from-blue-600 to-violet-600 text-white font-bold py-3 rounded-xl shadow-lg hover:opacity-90 active:scale-95 transition disabled:opacity-60">
                 ⬇️ Xuất file Excel
             </button>
             <p id="msg" class="text-center mt-4 text-sm font-medium"></p>
@@ -174,7 +174,7 @@
     </div>
 
     <!-- Chế độ chiếu toàn màn hình -->
-    <div id="present" class="hidden fixed inset-0 z-40 flex flex-col items-center justify-center p-4 text-white" style="background:linear-gradient(135deg,#1d4ed8 0%,#4f46e5 50%,#7c3aed 100%)">
+    <div id="present" class="hidden fixed inset-0 z-40 flex flex-col items-center justify-center p-4 text-white" style="background:radial-gradient(circle at 15% 10%,rgba(125,211,252,.55),transparent 45%),radial-gradient(circle at 90% 85%,rgba(196,181,253,.7),transparent 50%),linear-gradient(160deg,#3b82f6 0%,#6d5df6 55%,#8b5cf6 100%)">
         <button id="present-exit" type="button" class="absolute top-4 right-4 px-4 py-2 rounded-xl bg-white/20 hover:bg-white/30 font-bold">✕ Thoát</button>
         <h1 class="text-2xl md:text-4xl font-extrabold mb-4 text-center">Quét mã QR để điểm danh</h1>
         <div class="qr-frame">
