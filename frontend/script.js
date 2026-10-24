@@ -99,7 +99,7 @@ document.addEventListener("DOMContentLoaded", () => {
         event.preventDefault();
         
         if (!sessionId) {
-            statusElement.innerText = "Please scan the QR code first";
+            statusElement.innerText = "Hãy quét mã QR trước";
             statusElement.className = "text-center mt-4 text-sm text-red-600";
             isSubmitting = false;
             return;
@@ -119,7 +119,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const validationData = await validationResponse.json();
             
             if (!validationData.valid) {
-                statusElement.innerText = "Invalid QR session. Please scan again.";
+                statusElement.innerText = "Mã QR không hợp lệ hoặc đã hết hạn. Hãy quét lại.";
                 statusElement.className = "text-center mt-4 text-sm text-red-600";
                 isSubmitting = false;
                 return;
@@ -130,12 +130,14 @@ document.addEventListener("DOMContentLoaded", () => {
         
             const name = document.getElementById("name").value.trim();
             const universityRollNo = document.getElementById("universityRollNo").value.trim();
-            const section = document.getElementById("section").value.trim();
-            const classRollNo = document.getElementById("classRollNo").value.trim();
+            const school = document.getElementById("school").value;
         
-            if (!name || !universityRollNo || !section || !classRollNo) {
-                statusElement.innerText = "Please fill all fields";
+            if (!school || !name || !universityRollNo) {
+                statusElement.innerText = "Vui lòng chọn trường và điền đủ họ tên, mã số sinh viên";
                 statusElement.className = "text-center mt-4 text-sm text-red-600";
+                isSubmitting = false;
+                submitButton.disabled = false;
+                submitButton.innerHTML = `✅ Xác nhận điểm danh`;
                 return;
             }
             
@@ -147,8 +149,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         const payload = {
                             name,
                             universityRollNo,
-                            section,
-                            classRollNo,
+                            school,
                             location: {
                                 lat: position.coords.latitude,
                                 lng: position.coords.longitude
@@ -169,7 +170,7 @@ document.addEventListener("DOMContentLoaded", () => {
                             const data = await response.json();
         
                             if (response.status === 400 && data.message === "Attendance already marked today") {
-                                statusElement.innerText = "You've already marked attendance today";
+                                statusElement.innerText = "Bạn đã điểm danh hôm nay rồi";
                                 statusElement.className = "text-center mt-4 text-sm text-yellow-600";
                                         // Still allow viewing dashboard
         if (SHOW_DASHBOARD) {
@@ -190,7 +191,9 @@ document.addEventListener("DOMContentLoaded", () => {
             window.location.href = `/dashboard.html?rollNo=${encodeURIComponent(universityRollNo)}`;
         } else {
             statusElement.innerText = "✅ Điểm danh thành công!";
+            var keepSchool = document.getElementById("school").value;
             form.reset();
+            document.getElementById("school").value = keepSchool;
         }
                         } catch (error) {
                             console.error("API error:", error);
@@ -199,14 +202,14 @@ document.addEventListener("DOMContentLoaded", () => {
                         } finally {
                             isSubmitting = false;
                             submitButton.disabled = false;
-                            submitButton.innerHTML = `Submit Attendance`;
+                            submitButton.innerHTML = `✅ Xác nhận điểm danh`;
                         }
                     },
                     (error) => {
-                        statusElement.innerText = "Location error: " + error.message;
+                        statusElement.innerText = "Không lấy được vị trí. Hãy bật GPS và cho phép vị trí rồi thử lại.";
                         statusElement.className = "text-center mt-4 text-sm text-red-600";
                         submitButton.disabled = false;
-                        submitButton.innerHTML = `Submit Attendance`;
+                        submitButton.innerHTML = `✅ Xác nhận điểm danh`;
                         isSubmitting = false;
                     },
                     { timeout: 10000, enableHighAccuracy: true }
@@ -216,15 +219,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 statusElement.className = "text-center mt-4 text-sm text-red-600";
                 isSubmitting = false;
                 submitButton.disabled = false;
-                submitButton.innerHTML = `Submit Attendance`;
+                submitButton.innerHTML = `✅ Xác nhận điểm danh`;
             }
         } catch (err) {
             console.error("Unexpected error:", err);
-            statusElement.innerText = "An unexpected error occurred.";
+            statusElement.innerText = "Có lỗi xảy ra, hãy thử lại.";
             statusElement.className = "text-center mt-4 text-sm text-red-600";
             isSubmitting = false;
             submitButton.disabled = false;
-            submitButton.innerHTML = `Submit Attendance`;
+            submitButton.innerHTML = `✅ Xác nhận điểm danh`;
         }
     });
 });

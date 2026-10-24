@@ -48,24 +48,24 @@
         </div>
         <form id="attendanceForm" class="space-y-4">
             <div>
-                <label for="name" class="block text-sm font-semibold text-gray-700 mb-1">👤 Họ và tên</label>
-                <input type="text" id="name" placeholder="Nhập họ và tên" class="field">
+                <label for="school" class="block text-sm font-semibold text-gray-700 mb-1">🏫 Trường</label>
+                <select id="school" class="field">
+                    <option value="">— Chọn trường —</option>
+                    <option value="USSH">Đại học Khoa học xã hội và Nhân văn ĐHQG TP.HCM (USSH)</option>
+                    <option value="UEH">Đại học Kinh tế TP.HCM (UEH)</option>
+                    <option value="UEH-Mekong">Đại học Kinh tế phân hiệu Mekong</option>
+                    <option value="CDDaiViet">Cao đẳng Đại Việt</option>
+                </select>
             </div>
 
             <div>
                 <label for="universityRollNo" class="block text-sm font-semibold text-gray-700 mb-1">🆔 Mã số sinh viên</label>
-                <input type="text" id="universityRollNo" placeholder="Nhập mã số sinh viên" class="field">
+                <input type="text" id="universityRollNo" placeholder="Nhập mã số sinh viên" class="field" inputmode="numeric" autocomplete="off">
             </div>
 
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label for="section" class="block text-sm font-semibold text-gray-700 mb-1">📚 Lớp / Nhóm</label>
-                    <input type="text" id="section" placeholder="Ví dụ: A" class="field">
-                </div>
-                <div>
-                    <label for="classRollNo" class="block text-sm font-semibold text-gray-700 mb-1">🔢 Số thứ tự</label>
-                    <input type="text" id="classRollNo" placeholder="Ví dụ: 12" class="field">
-                </div>
+            <div>
+                <label for="name" class="block text-sm font-semibold text-gray-700 mb-1">👤 Họ và tên</label>
+                <input type="text" id="name" placeholder="Nhập họ và tên" class="field" autocomplete="off">
             </div>
 
             <button type="submit"
@@ -192,6 +192,13 @@
         }
 
         window.addEventListener('load', ask);
+
+        // Nhớ trường đã chọn lần trước để lần sau không phải chọn lại
+        try {
+            var sv = localStorage.getItem('school');
+            if (sv) document.getElementById('school').value = sv;
+            document.getElementById('school').addEventListener('change', function () { localStorage.setItem('school', this.value); });
+        } catch (e) {}
     })();
     </script>
 </body>
