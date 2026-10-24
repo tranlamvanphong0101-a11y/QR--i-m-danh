@@ -83,6 +83,7 @@
             <div id="session-info" class="text-sm text-gray-700 mb-4 hidden bg-indigo-50 rounded-xl p-3">
                 Mã phiên: <span id="session-id" class="font-mono text-xs break-all"></span><br>
                 <span class="font-semibold text-indigo-700">⏱ Còn hiệu lực: <span id="expiry-time"></span></span>
+                <button id="regen-btn" type="button" class="block mx-auto mt-2 text-xs font-semibold text-indigo-700 underline disabled:opacity-50">🔄 Tạo lại mã (lấy lại vị trí)</button>
             </div>
 
             <div id="qr-controls">
@@ -229,26 +230,71 @@
         }
     }
 
-    async function generateQR() {
+    // Vị trí đã lấy được ở lần tạo mã gần nhất. Khi mã tự làm mới, dùng lại vị trí này
+    // (giảng viên đứng yên), nên không bị mất mã chỉ vì MacBook chập chờn định vị.
+    var cachedPos = null;
+    var autoFailCount = 0;
+
+    function locationErrorMessage(code) {
+        if (code === 1) {
+            return 'Chưa được cấp quyền vị trí. Trên MacBook: Cài đặt hệ thống → Quyền riêng tư & Bảo mật → Dịch vụ định vị → bật cho Chrome/Safari. ' +
+                   'Rồi bấm biểu tượng bên trái thanh địa chỉ → Vị trí → Cho phép, và bấm tạo mã lại.';
+        }
+        if (code === 2) {
+            return 'Máy chưa xác định được vị trí. Hãy bật Wi-Fi (MacBook định vị bằng Wi-Fi), chờ vài giây rồi bấm lại. Nếu vẫn lỗi, hãy tạo mã bằng điện thoại.';
+        }
+        return 'Lấy vị trí quá lâu. Hãy kiểm tra Wi-Fi rồi bấm lại.';
+    }
+
+    function getPositionOnce(opts) {
+        return new Promise(function (resolve, reject) {
+            navigator.geolocation.getCurrentPosition(
+                function (p) { resolve({ lat: p.coords.latitude, lng: p.coords.longitude }); },
+                function (err) { reject(err); },
+                opts
+            );
+        });
+    }
+
+    // Thử định vị bằng Wi-Fi trước (nhanh, hợp với MacBook), không được thì thử lại bằng GPS
+    async function getFreshPosition() {
+        if (!navigator.geolocation) throw new Error('Trình duyệt không hỗ trợ định vị');
+        try {
+            return await getPositionOnce({ enableHighAccuracy: false, timeout: 20000, maximumAge: 120000 });
+        } catch (e1) {
+            if (e1 && e1.code === 1) throw new Error(locationErrorMessage(1));
+            try {
+                return await getPositionOnce({ enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
+            } catch (e2) {
+                throw new Error(locationErrorMessage(e2 && e2.code));
+            }
+        }
+    }
+
+    async function generateQR(isAuto) {
+        isAuto = (isAuto === true);
         var btn = $('generate-btn');
         if (autoRefreshTimerId) { clearTimeout(autoRefreshTimerId); autoRefreshTimerId = null; }
 
         btn.disabled = true;
         btn.textContent = 'Đang tạo mã...';
+        $('regen-btn').disabled = true;
         clearError();
-        $('qr-image').classList.add('hidden');
-        $('qr-wrap').classList.remove('hidden');
-        $('qr-loading').classList.remove('hidden');
-        $('session-info').classList.add('hidden');
+        if (!isAuto) {
+            $('qr-image').classList.add('hidden');
+            $('qr-wrap').classList.remove('hidden');
+            $('qr-loading').classList.remove('hidden');
+            $('session-info').classList.add('hidden');
+        }
 
         try {
-            var pos = await new Promise(function (resolve, reject) {
-                navigator.geolocation.getCurrentPosition(
-                    function (p) { resolve({ lat: p.coords.latitude, lng: p.coords.longitude }); },
-                    function () { reject(new Error('Hãy cho phép truy cập vị trí rồi bấm lại')); },
-                    { enableHighAccuracy: true, timeout: 15000 }
-                );
-            });
+            var pos;
+            if (isAuto && cachedPos) {
+                pos = cachedPos;
+            } else {
+                pos = await getFreshPosition();
+                cachedPos = pos;
+            }
             var response = await axios.get(API_BASE + '/api/generate-qr', {
                 params: { lat: pos.lat, lng: pos.lng, radius: $('radius').value },
                 headers: { 'x-admin-password': $('adminPassword').value }
@@ -260,6 +306,7 @@
                 img.onload = function () { img.classList.remove('hidden'); $('qr-loading').classList.add('hidden'); };
                 img.onerror = function () { showError('Không tải được ảnh mã QR'); $('qr-loading').classList.add('hidden'); };
                 img.src = API_BASE + data.qrImage + '?t=' + Date.now();
+                autoFailCount = 0;
 
                 $('session-id').textContent = data.sessionId;
                 $('session-info').classList.remove('hidden');
@@ -267,7 +314,7 @@
                 updateExpiryTimer(data.expiresIn);
 
                 if (data.expiresIn > 10000) {
-                    autoRefreshTimerId = setTimeout(generateQR, data.expiresIn - 10000);
+                    autoRefreshTimerId = setTimeout(function () { generateQR(true); }, data.expiresIn - 10000);
                 }
 
                 // Sang bước 2
@@ -281,14 +328,22 @@
             }
         } catch (error) {
             console.error('QR generation failed:', error);
-            showError((error.response && error.response.data && error.response.data.message) || error.message || 'Không tạo được mã QR');
-            $('qr-loading').classList.add('hidden');
-            $('qr-wrap').classList.add('hidden');
-            setQrView('create');
-            currentSessionId = null;
+            // Mã tự làm mới bị lỗi (mạng chập chờn): giữ mã cũ trên màn hình và thử lại sau 4 giây
+            if (isAuto && currentSessionId && autoFailCount < 5) {
+                autoFailCount++;
+                $('qr-loading').classList.add('hidden');
+                autoRefreshTimerId = setTimeout(function () { generateQR(true); }, 4000);
+            } else {
+                showError((error.response && error.response.data && error.response.data.message) || error.message || 'Không tạo được mã QR');
+                $('qr-loading').classList.add('hidden');
+                $('qr-wrap').classList.add('hidden');
+                setQrView('create');
+                currentSessionId = null;
+            }
         } finally {
             btn.disabled = false;
             btn.textContent = 'Tạo mã QR';
+            $('regen-btn').disabled = false;
         }
     }
 
@@ -581,13 +636,15 @@
         $('dateInput').addEventListener('change', hideDeleteAfterExport);
         $('schoolSel').addEventListener('change', hideDeleteAfterExport);
         try { var sv = localStorage.getItem('school'); if (sv) $('schoolSel').value = sv; } catch (e) {}
-        $('generate-btn').addEventListener('click', generateQR);
+        $('generate-btn').addEventListener('click', function () { generateQR(false); });
+        $('regen-btn').addEventListener('click', function () { cachedPos = null; generateQR(false); });
         $('end-btn').addEventListener('click', endSession);
         $('exportBtn').addEventListener('click', doExport);
         $('back-btn').addEventListener('click', function () {
             $('panel-export').classList.add('hidden');
             $('panel-live').classList.add('hidden');
             clearInterval(pollTimer);
+            cachedPos = null;
             clearError();
             setQrView('create');
             setStep(1);
