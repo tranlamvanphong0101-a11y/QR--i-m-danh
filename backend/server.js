@@ -364,6 +364,13 @@ app.get('/api/attendance/by-date', async (req, res) => {
 // QR Code Generation Endpoint
 app.get("/api/generate-qr", qrLimiter, async (req, res) => {
   try {
+        const adminPass = req.headers['x-admin-password'];
+    if (!process.env.ADMIN_PASSWORD || adminPass !== process.env.ADMIN_PASSWORD) {
+      return res.status(401).json({
+        status: "error",
+        message: "Sai mật khẩu giảng viên"
+      });
+    }
     console.log(`Generating QR code for IP: ${req.ip}`);
     const lat = parseFloat(req.query.lat);
 const lng = parseFloat(req.query.lng);
