@@ -39,13 +39,13 @@
         .step-label.active { color: #4338ca; }
         /* Kích thước mã QR: nhỏ trên điện thoại, to trên laptop (theo chiều cao màn hình) */
         .qr-box { width: 16rem; height: 16rem; }
-        @media (min-width: 1024px) {
-            .qr-box { width: min(30rem, 58vh); height: min(30rem, 58vh); }
+        @media (min-width: 768px) {
+            .qr-box { width: min(30rem, 56vh, 40vw); height: min(30rem, 56vh, 40vw); }
         }
     </style>
 </head>
 <body class="flex items-start justify-center p-4">
-    <div class="card w-full max-w-md lg:max-w-6xl rounded-3xl shadow-2xl p-6 lg:p-8 my-4">
+    <div class="card w-full max-w-md md:max-w-6xl rounded-3xl shadow-2xl p-6 md:p-8 my-4">
 
         <!-- Thanh các bước -->
         <div class="flex items-start justify-between mb-6 px-2">
@@ -66,10 +66,10 @@
         </div>
 
         <!-- Trên laptop: mã QR bên trái, danh sách / xuất file bên phải -->
-        <div class="lg:flex lg:gap-10 lg:items-start">
+        <div class="md:flex md:gap-10 md:items-start">
 
         <!-- BƯỚC 1: TẠO MÃ QR -->
-        <div id="panel-qr" class="text-center lg:flex-1 lg:min-w-0">
+        <div id="panel-qr" class="text-center md:flex-1 md:min-w-0">
             <h1 id="qr-title" class="text-2xl font-extrabold text-gray-900">Tạo mã QR điểm danh</h1>
             <p id="qr-sub" class="text-gray-600 text-sm mt-1 mb-5">Chọn bán kính rồi bấm tạo mã để chiếu cho lớp</p>
 
@@ -116,7 +116,7 @@
         </div>
 
         <!-- BƯỚC 2: SINH VIÊN ĐANG ĐIỂM DANH -->
-        <div id="panel-live" class="hidden mt-6 pt-5 border-t-2 border-gray-200 lg:mt-0 lg:pt-0 lg:border-t-0 lg:border-l-2 lg:pl-10 lg:flex-1 lg:min-w-0">
+        <div id="panel-live" class="hidden mt-6 pt-5 border-t-2 border-gray-200 md:mt-0 md:pt-0 md:border-t-0 md:border-l-2 md:pl-10 md:flex-1 md:min-w-0">
             <div class="flex items-center justify-between mb-2">
                 <h2 class="text-lg font-extrabold text-gray-900">Sinh viên đã điểm danh</h2>
                 <div class="text-right">
@@ -125,7 +125,7 @@
                 </div>
             </div>
             <p id="live-status" class="text-xs text-gray-500 mb-2">Tự cập nhật mỗi 5 giây (hôm nay)</p>
-            <div id="live-list" class="max-h-48 lg:max-h-[58vh] overflow-y-auto rounded-xl border-2 border-gray-200 divide-y divide-gray-100 text-sm text-gray-800 bg-white"></div>
+            <div id="live-list" class="max-h-48 md:max-h-[58vh] overflow-y-auto rounded-xl border-2 border-gray-200 divide-y divide-gray-100 text-sm text-gray-800 bg-white"></div>
             <button id="end-btn"
                 class="w-full mt-4 bg-emerald-600 text-white font-bold py-3 rounded-xl shadow hover:bg-emerald-700 active:scale-95 transition">
                 ✅ Kết thúc buổi &amp; xuất file
@@ -133,7 +133,7 @@
         </div>
 
         <!-- BƯỚC 3: XUẤT FILE -->
-        <div id="panel-export" class="hidden mt-6 pt-5 border-t-2 border-gray-200 lg:mt-0 lg:pt-0 lg:border-t-0 lg:border-l-2 lg:pl-10 lg:flex-1 lg:min-w-0">
+        <div id="panel-export" class="hidden mt-6 pt-5 border-t-2 border-gray-200 md:mt-0 md:pt-0 md:border-t-0 md:border-l-2 md:pl-10 md:flex-1 md:min-w-0">
             <h2 class="text-lg font-extrabold text-gray-900 mb-1">Xuất file Excel</h2>
             <p class="text-xs text-gray-600 mb-3">Điền kết quả điểm danh vào file danh sách lớp của bạn (đúng mẫu: dòng 2 là tiêu đề, từ dòng 3 là sinh viên).</p>
 
@@ -415,7 +415,7 @@
         rows.slice().sort(function (a, b) { return String(b.time || '').localeCompare(String(a.time || '')); })
             .forEach(function (r) {
                 var row = document.createElement('div');
-                row.className = 'flex items-center justify-between px-3 py-2 lg:py-3 lg:text-base';
+                row.className = 'flex items-center justify-between px-3 py-2 md:py-3 md:text-base';
                 var left = document.createElement('div');
                 var nm = document.createElement('div');
                 nm.className = 'font-semibold';
