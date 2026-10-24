@@ -62,16 +62,18 @@
 
         <!-- BƯỚC 1: TẠO MÃ QR -->
         <div id="panel-qr" class="text-center">
-            <h1 class="text-2xl font-extrabold text-gray-900">Tạo mã QR điểm danh</h1>
-            <p class="text-gray-600 text-sm mt-1 mb-5">Nhập mật khẩu, chọn bán kính rồi bấm tạo mã để chiếu cho lớp quét</p>
+            <h1 id="qr-title" class="text-2xl font-extrabold text-gray-900">Tạo mã QR điểm danh</h1>
+            <p id="qr-sub" class="text-gray-600 text-sm mt-1 mb-5">Chọn bán kính rồi bấm tạo mã để chiếu cho lớp</p>
 
-            <div class="flex justify-center mb-4">
-                <div id="qr-container" class="relative">
+            <div id="qr-wrap" class="hidden mb-4 mt-4">
+                <div class="flex justify-center">
                     <div class="qr-frame">
-                        <img id="qr-image" src="" alt="Mã QR" class="w-64 h-64 rounded-3xl bg-white hidden">
-                    </div>
-                    <div id="qr-loading" class="absolute inset-0 flex items-center justify-center hidden">
-                        <div class="spinner rounded-full h-12 w-12 border-t-4 border-b-4 border-indigo-500"></div>
+                        <div class="relative w-64 h-64 rounded-3xl bg-white">
+                            <img id="qr-image" src="" alt="Mã QR" class="w-64 h-64 rounded-3xl bg-white hidden">
+                            <div id="qr-loading" class="absolute inset-0 flex items-center justify-center hidden">
+                                <div class="spinner rounded-full h-12 w-12 border-t-4 border-b-4 border-indigo-500"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -83,6 +85,7 @@
                 <span class="font-semibold text-indigo-700">⏱ Còn hiệu lực: <span id="expiry-time"></span></span>
             </div>
 
+            <div id="qr-controls">
             <label for="radius" class="block text-left text-sm font-semibold text-gray-800 mb-1">📏 Bán kính điểm danh</label>
             <select id="radius" class="field mb-3">
                 <option value="50">50 mét (phòng nhỏ)</option>
@@ -97,6 +100,7 @@
                 Tạo mã QR
             </button>
             <p class="text-xs text-gray-500 mt-3">📍 Cho phép vị trí: sinh viên phải ở gần bạn mới điểm danh được</p>
+            </div>
         </div>
 
         <!-- BƯỚC 2: SINH VIÊN ĐANG ĐIỂM DANH -->
@@ -178,6 +182,9 @@
                 clearInterval(expiryInterval);
                 $('expiry-time').textContent = '0p 0s - Đã hết hạn';
                 $('qr-image').classList.add('hidden');
+                $('qr-wrap').classList.add('hidden');
+                $('session-info').classList.add('hidden');
+                setQrView('create');
                 showError('Mã QR đã hết hạn. Hãy tạo mã mới.');
                 currentSessionId = null;
                 return;
@@ -193,6 +200,26 @@
     function showError(message) { $('error-message').textContent = message; }
     function clearError() { $('error-message').textContent = ''; }
 
+    // Đổi giao diện phần mã QR: 'create' (đang chọn bán kính), 'live' (đang chiếu mã), 'closed' (đã đóng mã)
+    function setQrView(mode) {
+        var title = $('qr-title'), sub = $('qr-sub'), controls = $('qr-controls');
+        if (mode === 'create') {
+            title.textContent = 'Tạo mã QR điểm danh';
+            sub.textContent = 'Chọn bán kính rồi bấm tạo mã để chiếu cho lớp';
+            sub.classList.remove('hidden');
+            controls.classList.remove('hidden');
+        } else if (mode === 'live') {
+            title.textContent = 'Sinh viên quét mã để điểm danh';
+            sub.classList.add('hidden');
+            controls.classList.add('hidden');
+        } else {
+            title.textContent = 'Đã đóng mã QR';
+            sub.textContent = 'Mã cũ còn hiệu lực tối đa vài chục giây';
+            sub.classList.remove('hidden');
+            controls.classList.add('hidden');
+        }
+    }
+
     async function generateQR() {
         var btn = $('generate-btn');
         if (autoRefreshTimerId) { clearTimeout(autoRefreshTimerId); autoRefreshTimerId = null; }
@@ -201,6 +228,7 @@
         btn.textContent = 'Đang tạo mã...';
         clearError();
         $('qr-image').classList.add('hidden');
+        $('qr-wrap').classList.remove('hidden');
         $('qr-loading').classList.remove('hidden');
         $('session-info').classList.add('hidden');
 
@@ -237,6 +265,7 @@
                 $('panel-export').classList.add('hidden');
                 $('panel-live').classList.remove('hidden');
                 setStep(2);
+                setQrView('live');
                 startPolling();
             } else {
                 throw new Error(data.message || 'Phản hồi không hợp lệ từ máy chủ');
@@ -245,6 +274,8 @@
             console.error('QR generation failed:', error);
             showError((error.response && error.response.data && error.response.data.message) || error.message || 'Không tạo được mã QR');
             $('qr-loading').classList.add('hidden');
+            $('qr-wrap').classList.add('hidden');
+            setQrView('create');
             currentSessionId = null;
         } finally {
             btn.disabled = false;
@@ -414,9 +445,11 @@
         if (autoRefreshTimerId) { clearTimeout(autoRefreshTimerId); autoRefreshTimerId = null; }
         clearInterval(expiryInterval);
         $('qr-image').classList.add('hidden');
+        $('qr-wrap').classList.add('hidden');
         $('session-info').classList.add('hidden');
         currentSessionId = null;
-        showError('Đã đóng mã QR. Mã cũ chỉ còn hiệu lực tối đa vài chục giây.');
+        clearError();
+        setQrView('closed');
         pollAttendance();
         $('dateInput').value = todayLocal();
         $('panel-export').classList.remove('hidden');
@@ -532,7 +565,10 @@
         $('exportBtn').addEventListener('click', doExport);
         $('back-btn').addEventListener('click', function () {
             $('panel-export').classList.add('hidden');
+            $('panel-live').classList.add('hidden');
+            clearInterval(pollTimer);
             clearError();
+            setQrView('create');
             setStep(1);
             window.scrollTo({ top: 0, behavior: 'smooth' });
         });
