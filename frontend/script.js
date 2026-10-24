@@ -11,6 +11,7 @@ function getSessionId() {
 }
 
 const sessionId = getSessionId();
+const ticket = new URLSearchParams(window.location.search).get('ticket') || '';
 async function generateDeviceFingerprint() {
     try {
         // Cache fingerprint for the day to avoid recomputation
@@ -113,7 +114,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ sessionId })
+                body: JSON.stringify({ sessionId, ticket })
             });
 
             const validationData = await validationResponse.json();
@@ -155,7 +156,8 @@ document.addEventListener("DOMContentLoaded", () => {
                                 lng: position.coords.longitude
                             },
                             deviceFingerprint: fingerprint,
-                            sessionId
+                            sessionId,
+                            ticket
                         };
         
                         try {
@@ -169,7 +171,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
                             const data = await response.json();
         
-                            if (response.status === 400 && data.message === "Attendance already marked today") {
+                            if (response.status === 400 && (data.message === "Attendance already marked today" || data.message === "Bạn đã điểm danh hôm nay rồi")) {
                                 statusElement.innerText = "Bạn đã điểm danh hôm nay rồi";
                                 statusElement.className = "text-center mt-4 text-sm text-yellow-600";
                                         // Still allow viewing dashboard
