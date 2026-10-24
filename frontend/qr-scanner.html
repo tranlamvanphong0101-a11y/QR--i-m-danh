@@ -133,6 +133,14 @@
             </button>
             <p id="msg" class="text-center mt-4 text-sm font-medium"></p>
             <div id="detail" class="mt-2 text-sm text-gray-700"></div>
+
+            <button id="deleteBtn"
+                class="hidden w-full mt-3 bg-rose-600 text-white font-bold py-3 rounded-xl shadow hover:bg-rose-700 active:scale-95 transition disabled:opacity-60">
+                🗑️ Xóa dữ liệu điểm danh ngày này
+            </button>
+            <p id="delete-hint" class="hidden text-xs text-gray-600 mt-1 text-center">Chỉ nên xóa sau khi đã tải file. Xóa xong, sinh viên có thể điểm danh lại cho buổi hoặc lớp tiếp theo trong ngày.</p>
+
+            <button id="deleteAnyBtn" class="w-full mt-4 text-xs text-gray-500 underline">Xóa dữ liệu ngày này mà không xuất file (dữ liệu thử)</button>
             <button id="back-btn" class="w-full mt-3 text-sm text-indigo-700 underline">← Quay lại tạo mã mới</button>
         </div>
     </div>
@@ -452,6 +460,9 @@
             setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
 
             setMsg('✅ Đã xuất file: ' + result.present + ' / ' + result.total + ' sinh viên có mặt.', true);
+            lastExportedDate = date;
+            $('deleteBtn').classList.remove('hidden');
+            $('delete-hint').classList.remove('hidden');
             if (result.extras.length) {
                 var box = document.createElement('div');
                 box.className = 'bg-amber-50 border border-amber-300 rounded-xl p-3';
@@ -467,7 +478,55 @@
         }
     }
 
+    // ===== XÓA DỮ LIỆU ĐIỂM DANH =====
+    var lastExportedDate = null;
+
+    function hideDeleteAfterExport() {
+        lastExportedDate = null;
+        $('deleteBtn').classList.add('hidden');
+        $('delete-hint').classList.add('hidden');
+    }
+
+    async function deleteAttendance(date) {
+        var pw = $('adminPassword').value;
+        if (!pw) return setMsg('Hãy nhập mật khẩu giảng viên ở phần trên.', false);
+        var d = date.split('-');
+        var label = d[2] + '/' + d[1] + '/' + d[0];
+        try {
+            var res = await fetch(API_BASE + '/api/export/attendance?date=' + encodeURIComponent(date), {
+                method: 'DELETE',
+                headers: { 'x-admin-password': pw }
+            });
+            var json = await res.json().catch(function () { return {}; });
+            if (!res.ok) throw new Error(json.message || 'Không xóa được dữ liệu');
+            setMsg('🗑️ Đã xóa ' + json.deleted + ' bản ghi điểm danh ngày ' + label + '. Bạn có thể tạo mã QR cho buổi hoặc lớp tiếp theo.', true);
+            $('detail').innerHTML = '';
+            hideDeleteAfterExport();
+            pollAttendance();
+        } catch (e) {
+            setMsg(e.message || 'Có lỗi xảy ra', false);
+        }
+    }
+
+    function onDeleteAfterExport() {
+        if (!lastExportedDate) return;
+        var d = lastExportedDate.split('-');
+        var ok = confirm('Xóa TOÀN BỘ dữ liệu điểm danh ngày ' + d[2] + '/' + d[1] + '/' + d[0] + '?\n\nHãy chắc chắn bạn đã tải file Excel. Việc này không thể hoàn tác.');
+        if (ok) deleteAttendance(lastExportedDate);
+    }
+
+    function onDeleteWithoutExport() {
+        var date = $('dateInput').value;
+        if (!date) return setMsg('Hãy chọn ngày cần xóa.', false);
+        var d = date.split('-');
+        var typed = prompt('Bạn sắp xóa TOÀN BỘ dữ liệu điểm danh ngày ' + d[2] + '/' + d[1] + '/' + d[0] + ' mà KHÔNG xuất file. Không thể hoàn tác.\n\nGõ XOA để xác nhận:');
+        if (typed && typed.trim().toUpperCase() === 'XOA') deleteAttendance(date);
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
+        $('deleteBtn').addEventListener('click', onDeleteAfterExport);
+        $('deleteAnyBtn').addEventListener('click', onDeleteWithoutExport);
+        $('dateInput').addEventListener('change', hideDeleteAfterExport);
         $('generate-btn').addEventListener('click', generateQR);
         $('end-btn').addEventListener('click', endSession);
         $('exportBtn').addEventListener('click', doExport);
