@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xuất file điểm danh</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+    <style>
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #6366f1 0%, #a855f7 45%, #ec4899 100%);
+            background-attachment: fixed;
+        }
+        .field {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 0.9rem;
+            background: #f9fafb;
+        }
+        .field:focus {
+            outline: none;
+            border-color: #6366f1;
+            background: #fff;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-white/95 rounded-3xl shadow-2xl p-7 my-6">
+        <div class="text-center mb-6">
+            <div class="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center text-3xl shadow-lg">📊</div>
+            <h1 class="text-2xl font-extrabold text-gray-800">Xuất file điểm danh</h1>
+            <p class="text-gray-500 text-sm mt-1">Điền kết quả điểm danh vào file danh sách lớp của bạn</p>
+        </div>
+
+        <div class="space-y-4">
+            <div>
+                <label for="pw" class="block text-sm font-semibold text-gray-700 mb-1">🔒 Mật khẩu giảng viên</label>
+                <input type="password" id="pw" class="field" placeholder="Mật khẩu giảng viên">
+            </div>
+            <div>
+                <label for="dateInput" class="block text-sm font-semibold text-gray-700 mb-1">📅 Ngày điểm danh</label>
+                <input type="date" id="dateInput" class="field">
+            </div>
+            <div>
+                <label for="rosterFile" class="block text-sm font-semibold text-gray-700 mb-1">📁 File danh sách lớp (.xlsx)</label>
+                <input type="file" id="rosterFile" accept=".xlsx" class="field bg-white">
+                <p class="text-xs text-gray-400 mt-1">Dùng đúng mẫu: dòng 2 là tiêu đề, từ dòng 3 là sinh viên (STT, MSSV, Họ và tên, Thời gian, ngày).</p>
+            </div>
+            <button id="exportBtn"
+                class="w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white font-bold py-3.5 rounded-xl shadow-lg hover:opacity-90 active:scale-95 transition disabled:opacity-60">
+                ⬇️ Xuất file Excel
+            </button>
+        </div>
+
+        <p id="msg" class="text-center mt-5 text-sm font-medium"></p>
+        <div id="detail" class="mt-3 text-sm text-gray-600"></div>
+        <p class="text-center mt-5"><a href="/qr-scanner.html" class="text-xs text-indigo-500 underline">← Quay lại trang tạo mã QR</a></p>
+    </div>
+
+    <script>
+    // BEGIN CORE
+    function normId(v) {
+        return String(v == null ? '' : v).trim().toUpperCase();
+    }
+
+    function shortTime(t) {
+        var s = String(t || '').trim();
+        var m = s.match(/^(\d{1,2}):(\d{2})/);
+        return m ? (m[1].length === 1 ? '0' + m[1] : m[1]) + ':' + m[2] : s;
+    }
+
+    async function buildWorkbook(ExcelJS, buffer, dateStr, records) {
+        var HEADER_ROW = 2, FIRST = 3, C_STT = 1, C_ID = 2, C_NAME = 3, C_TIME = 4, C_DATE = 5;
+
+        var wb = new ExcelJS.Workbook();
+        await wb.xlsx.load(buffer);
+        var ws = wb.worksheets[0];
+        if (!ws) throw new Error('File Excel không có trang tính nào');
+
+        // Dòng cuối của danh sách (dòng cuối cùng có MSSV)
+        var last = FIRST - 1;
+        for (var r = FIRST; r <= ws.rowCount; r++) {
+            if (normId(ws.getCell(r, C_ID).text)) last = r;
+        }
+        if (last < FIRST) throw new Error('Không thấy MSSV nào từ dòng 3 trở đi. Hãy kiểm tra lại file mẫu.');
+
+        // Gom bản ghi theo MSSV (giữ giờ sớm nhất nếu trùng)
+        var byId = {};
+        records.forEach(function (rec) {
+            var k = normId(rec.universityRollNo);
+            if (!k) return;
+            if (!byId[k] || String(rec.time || '') < String(byId[k].time || '')) byId[k] = rec;
+        });
+
+        // Xóa dữ liệu cũ của cột Thời gian và cột ngày (giữ nguyên định dạng)
+        for (var rr = FIRST; rr <= last; rr++) {
+            ws.getCell(rr, C_TIME).value = null;
+            ws.getCell(rr, C_DATE).value = null;
+        }
+
+        var used = {};
+        var present = 0;
+        for (var row = FIRST; row <= last; row++) {
+            var key = normId(ws.getCell(row, C_ID).text);
+            var rec = byId[key];
+            if (rec) {
+                ws.getCell(row, C_TIME).value = shortTime(rec.time);
+                ws.getCell(row, C_DATE).value = 1;
+                used[key] = true;
+                present++;
+            }
+        }
+
+        // Sinh viên điểm danh nhưng không có trong danh sách: thêm xuống cuối, tô vàng
+        var extras = Object.keys(byId).filter(function (k) { return !used[k]; });
+        var newLast = last;
+        extras.forEach(function (k) {
+            newLast++;
+            var rec = byId[k];
+            for (var c = 1; c <= 5; c++) {
+                var src = ws.getCell(last, c);
+                var dst = ws.getCell(newLast, c);
+                dst.style = JSON.parse(JSON.stringify(src.style || {}));
+                dst.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } };
+            }
+            var prevStt = Number(ws.getCell(newLast - 1, C_STT).value);
+            ws.getCell(newLast, C_STT).value = isNaN(prevStt) ? '' : prevStt + 1;
+            ws.getCell(newLast, C_ID).value = String(rec.universityRollNo);
+            ws.getCell(newLast, C_NAME).value = String(rec.name || '').toUpperCase();
+            ws.getCell(newLast, C_TIME).value = shortTime(rec.time);
+            ws.getCell(newLast, C_DATE).value = 1;
+            present++;
+        });
+
+        // Tiêu đề cột ngày: ngày điểm danh
+        var p = dateStr.split('-').map(Number);
+        var hc = ws.getCell(HEADER_ROW, C_DATE);
+        hc.value = new Date(Date.UTC(p[0], p[1] - 1, p[2]));
+        hc.numFmt = 'dd/mm';
+
+        // Tổng số có mặt ở E1, mở rộng vùng lọc
+        ws.getCell(1, C_DATE).value = { formula: 'SUM(E' + FIRST + ':E' + newLast + ')', result: present };
+        ws.autoFilter = 'A' + HEADER_ROW + ':E' + newLast;
+
+        var out = await wb.xlsx.writeBuffer();
+        return {
+            buffer: out,
+            present: present,
+            total: last - FIRST + 1,
+            extras: extras.map(function (k) { return byId[k]; })
+        };
+    }
+    // END CORE
+
+    function todayLocal() {
+        return new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    }
+
+    document.getElementById('dateInput').value = todayLocal();
+
+    function setMsg(text, ok) {
+        var el = document.getElementById('msg');
+        el.textContent = text;
+        el.className = 'text-center mt-5 text-sm font-medium ' + (ok ? 'text-emerald-600' : 'text-rose-600');
+    }
+
+    document.getElementById('exportBtn').addEventListener('click', async function () {
+        var btn = this;
+        var detail = document.getElementById('detail');
+        detail.innerHTML = '';
+        setMsg('', true);
+
+        var date = document.getElementById('dateInput').value;
+        var file = document.getElementById('rosterFile').files[0];
+        if (!date) return setMsg('Hãy chọn ngày điểm danh.', false);
+        if (!file) return setMsg('Hãy chọn file danh sách lớp (.xlsx).', false);
+
+        btn.disabled = true;
+        btn.textContent = 'Đang xử lý...';
+        try {
+            var res = await fetch('/api/export/attendance?date=' + encodeURIComponent(date), {
+                headers: { 'x-admin-password': document.getElementById('pw').value }
+            });
+            var json = await res.json().catch(function () { return {}; });
+            if (!res.ok) throw new Error(json.message || 'Không lấy được dữ liệu từ máy chủ');
+
+            var buf = await file.arrayBuffer();
+            var result = await buildWorkbook(ExcelJS, buf, date, json.data || []);
+
+            var blob = new Blob([result.buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            var a = document.createElement('a');
+            var d = date.split('-');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'Diem-danh_' + d[2] + '-' + d[1] + '-' + d[0] + '.xlsx';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+
+            setMsg('✅ Đã xuất file: ' + result.present + ' / ' + result.total + ' sinh viên có mặt.', true);
+            if (result.extras.length) {
+                detail.innerHTML = '<div class="bg-amber-50 border border-amber-200 rounded-xl p-3">' +
+                    '⚠️ ' + result.extras.length + ' sinh viên điểm danh nhưng <b>không có trong danh sách</b> (đã thêm cuối bảng, tô vàng): ' +
+                    result.extras.map(function (r) { return String(r.universityRollNo).replace(/</g, '&lt;'); }).join(', ') +
+                    '<br><span class="text-xs">Thường do gõ sai MSSV.</span></div>';
+            }
+        } catch (e) {
+            setMsg(e.message || 'Có lỗi xảy ra', false);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '⬇️ Xuất file Excel';
+        }
+    });
+    </script>
+</body>
+</html>
