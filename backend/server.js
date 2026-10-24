@@ -55,6 +55,36 @@ const MAX_DISTANCE_METERS = 150;
 
 const QR_CODE_DIR = path.join(__dirname, '../frontend/public/qrcodes');
 
+// --- Bán kính theo từng mã QR và "vé quét" cho sinh viên ---
+// Vé quét: khi sinh viên quét đúng lúc mã còn hạn, họ có thêm 10 phút để điền form,
+// nên không bị báo hết hạn nữa dù mã trên màn hình đã đổi sang mã mới.
+const ALLOWED_RADIUS = [50, 100, 150];
+const TICKET_TTL_MS = 10 * 60 * 1000;
+const sessionRadius = new Map(); // sessionId -> { radius, at }
+const scanTickets = new Map();   // ticket -> { sessionId, lat, lng, radius, expiresAt }
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, t] of scanTickets) if (t.expiresAt < now) scanTickets.delete(k);
+  for (const [k, r] of sessionRadius) if (now - r.at > 60 * 60 * 1000) sessionRadius.delete(k);
+}, 60 * 1000).unref();
+
+// Trả về { lat, lng, radius } nếu mã/vé còn hiệu lực, ngược lại null
+function resolveSession(sessionId, ticket) {
+  if (ticket) {
+    const t = scanTickets.get(ticket);
+    if (t && t.sessionId === sessionId && t.expiresAt > Date.now()) return t;
+  }
+  if (sessionId && validateSession(sessionId)) {
+    const info = getSessionInfo(sessionId);
+    if (info) {
+      const r = sessionRadius.get(sessionId);
+      return { lat: info.lat, lng: info.lng, radius: (r && r.radius) || info.radius || MAX_DISTANCE_METERS };
+    }
+  }
+  return null;
+}
+
 // Middleware Setup
 app.use(
   helmet({
@@ -389,7 +419,10 @@ if (isNaN(lat) || isNaN(lng)) {
     message: "Cần cho phép vị trí để tạo mã QR"
   });
 }
-const qrData = await generateQRCode(req.ip, lat, lng);
+const radiusReq = parseInt(req.query.radius, 10);
+const radius = ALLOWED_RADIUS.includes(radiusReq) ? radiusReq : 100;
+const qrData = await generateQRCode(req.ip, lat, lng, radius);
+    sessionRadius.set(qrData.sessionId, { radius, at: Date.now() });
     
     console.log(` Generated QR code at: ${qrData.qrImage}`);
     res.json({
@@ -427,7 +460,7 @@ function consistentHashJS(input) {
 
 app.post("/api/validate-session", async (req, res) => {
   try {
-    const { sessionId } = req.body;
+    const { sessionId, ticket } = req.body;
     if (!sessionId) {
       return res.status(400).json({ 
         valid: false, 
@@ -435,7 +468,7 @@ app.post("/api/validate-session", async (req, res) => {
       });
     }
     
-    const isValid = validateSession(sessionId);
+    const isValid = !!resolveSession(sessionId, ticket);
     res.json({ 
       valid: isValid,
       message: isValid ? "Valid session" : "Invalid or expired session ID"
@@ -477,7 +510,19 @@ app.get('/verify-attendance', (req, res) => {
             return res.status(400).send('QR code expired');
         }
 
-        res.redirect(`/index.html?sessionId=${data.sessionId}`);
+        const scanned = resolveSession(data.sessionId, null);
+        if (!scanned) {
+            return res.status(400).send('<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><body style="font-family:sans-serif;text-align:center;padding:40px 20px"><h2>Mã QR đã hết hạn</h2><p>Hãy quét lại mã đang được chiếu trên màn hình.</p></body>');
+        }
+        const ticket = crypto.randomBytes(16).toString('hex');
+        scanTickets.set(ticket, {
+            sessionId: data.sessionId,
+            lat: scanned.lat,
+            lng: scanned.lng,
+            radius: scanned.radius,
+            expiresAt: Date.now() + TICKET_TTL_MS
+        });
+        res.redirect(`/index.html?sessionId=${encodeURIComponent(data.sessionId)}&ticket=${ticket}`);
     }  catch (error) {
         console.error('QR validation error:', error);
         res.status(400).send('Invalid QR code data');
@@ -552,7 +597,7 @@ app.post("/mark-attendance", validateAttendance, async (req, res) => {
     if (existing) {
       return res.status(400).json({
         status: "error",
-        message: "You've already marked attendance today"
+        message: "Bạn đã điểm danh hôm nay rồi"
       });
     }
 
@@ -563,7 +608,7 @@ app.post("/mark-attendance", validateAttendance, async (req, res) => {
       });
     }
 
-        const sessionInfo = getSessionInfo(req.body.sessionId);
+        const sessionInfo = resolveSession(req.body.sessionId, req.body.ticket);
     if (!sessionInfo) {
       return res.status(400).json({
         status: "error",
@@ -575,10 +620,11 @@ app.post("/mark-attendance", validateAttendance, async (req, res) => {
       sessionInfo.lat, sessionInfo.lng
     );
 
-    if (distance > MAX_DISTANCE_METERS) {
+    const maxDistance = sessionInfo.radius || MAX_DISTANCE_METERS;
+    if (distance > maxDistance) {
       return res.status(400).json({
         status: "error",
-        message: `You must be within ${MAX_DISTANCE_METERS} meters of the classroom to mark attendance. Current distance: ${distance.toFixed(0)}m`
+        message: `Bạn phải ở trong phạm vi ${maxDistance} m quanh giảng viên để điểm danh (hiện cách khoảng ${distance.toFixed(0)} m)`
       });
     }
 
