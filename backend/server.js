@@ -571,7 +571,7 @@ function validateAttendance(req, res, next) {
   }
   // Làm sạch dữ liệu; lưu tên trường viết tắt vào trường "section" có sẵn
   req.body.name = String(req.body.name).trim();
-  req.body.universityRollNo = String(req.body.universityRollNo).trim();
+  req.body.universityRollNo = String(req.body.universityRollNo).replace(/\s+/g, "").toUpperCase();
   req.body.section = req.body.school;
   req.body.classRollNo = req.body.universityRollNo;
 
