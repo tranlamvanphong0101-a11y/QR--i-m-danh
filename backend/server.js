@@ -570,8 +570,10 @@ app.get("/health", (req, res) => {
   });
 });
 
+const ALLOWED_SCHOOLS = ["USSH", "UEH", "UEH-Mekong", "CDDaiViet"];
+
 function validateAttendance(req, res, next) {
-  const required = ['name', 'universityRollNo', 'section', 'classRollNo', 'deviceFingerprint'];
+  const required = ['name', 'universityRollNo', 'school', 'deviceFingerprint'];
   const missing = required.filter(field => !req.body[field]);
 
   if (missing.length) {
@@ -580,6 +582,15 @@ function validateAttendance(req, res, next) {
       message: `Missing required fields: ${missing.join(', ')}`
     });
   }
+
+  if (!ALLOWED_SCHOOLS.includes(req.body.school)) {
+    return res.status(400).json({ status: "error", message: "Trường không hợp lệ" });
+  }
+  // Làm sạch dữ liệu; lưu tên trường viết tắt vào trường "section" có sẵn
+  req.body.name = String(req.body.name).trim();
+  req.body.universityRollNo = String(req.body.universityRollNo).trim();
+  req.body.section = req.body.school;
+  req.body.classRollNo = req.body.universityRollNo;
 
   if (!req.body.location || typeof req.body.location.lat !== "number" || typeof req.body.location.lng !== "number") {
     return res.status(400).json({
@@ -956,7 +967,15 @@ app.get('/api/export/attendance', async (req, res) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return res.status(400).json({ status: "error", message: "Ngày không hợp lệ" });
     }
-    const rows = await Attendance.find({ date, status: 'present' }).sort({ time: 1 }).lean();
+    const filter = { date, status: 'present' };
+    const school = String(req.query.school || '');
+    if (school) {
+      if (!ALLOWED_SCHOOLS.includes(school)) {
+        return res.status(400).json({ status: "error", message: "Trường không hợp lệ" });
+      }
+      filter.section = school;
+    }
+    const rows = await Attendance.find(filter).sort({ time: 1 }).lean();
     res.json({
       status: "success",
       data: rows.map(r => ({ universityRollNo: r.universityRollNo, name: r.name, time: r.time }))
@@ -976,7 +995,15 @@ app.delete('/api/export/attendance', async (req, res) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return res.status(400).json({ status: "error", message: "Ngày không hợp lệ" });
     }
-    const result = await Attendance.deleteMany({ date });
+    const filter = { date };
+    const school = String(req.query.school || '');
+    if (school) {
+      if (!ALLOWED_SCHOOLS.includes(school)) {
+        return res.status(400).json({ status: "error", message: "Trường không hợp lệ" });
+      }
+      filter.section = school;
+    }
+    const result = await Attendance.deleteMany(filter);
     res.json({ status: "success", deleted: result.deletedCount });
   } catch (error) {
     console.error("Delete error:", error);
