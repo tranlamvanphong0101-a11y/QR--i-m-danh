@@ -9,6 +9,7 @@
     <meta name="theme-color" content="#6366f1">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Điểm danh">
+    <link rel="icon" type="image/png" href="/icon-192.png">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
@@ -39,6 +40,7 @@
         .step-label.active { color: #4338ca; }
         @keyframes flashNew { 0% { background: #86efac; transform: scale(1.03); } 100% { background: transparent; transform: scale(1); } }
         .flash-new { animation: flashNew 2.5s ease-out; }
+        .suspect-badge { display: inline-block; margin-top: 2px; padding: 1px 8px; border-radius: 9999px; background: #fef3c7; color: #92400e; font-size: 0.72rem; font-weight: 700; border: 1px solid #fcd34d; }
         @keyframes bump { 0% { transform: scale(1); } 40% { transform: scale(1.35); } 100% { transform: scale(1); } }
         .bump { display: inline-block; animation: bump .5s ease-out; }
         /* Kích thước mã QR: nhỏ trên điện thoại, to trên laptop (theo chiều cao màn hình) */
@@ -130,6 +132,7 @@
                 </div>
             </div>
             <p id="live-last" class="text-sm font-bold text-emerald-700 mb-1 min-h-5"></p>
+            <p id="live-warn" class="hidden text-sm font-bold text-amber-700 mb-1"></p>
             <p id="live-status" class="text-xs text-gray-500 mb-2">Tự cập nhật mỗi 5 giây (hôm nay)</p>
             <div id="live-list" class="max-h-48 md:max-h-[58vh] overflow-y-auto rounded-xl border-2 border-gray-200 divide-y divide-gray-100 text-sm text-gray-800 bg-white"></div>
             <button id="end-btn"
@@ -176,6 +179,7 @@
         </div>
 
         </div>
+        <p class="text-center text-xs text-gray-500 mt-6 select-none">© 2026 <b>TH</b> · Bản quyền thuộc về TH</p>
     </div>
 
     <!-- Chế độ chiếu toàn màn hình -->
@@ -191,6 +195,7 @@
             <div class="text-center"><span id="present-count" class="text-5xl md:text-6xl font-extrabold">0</span><span class="text-xl md:text-2xl ml-2">người đã điểm danh</span></div>
             <div class="text-lg md:text-2xl font-semibold">⏱ Còn hiệu lực: <span id="present-expiry"></span></div>
         </div>
+        <p class="absolute bottom-3 right-4 text-xs md:text-sm text-white/70 select-none">© 2026 TH</p>
         <p id="present-last" class="mt-3 text-lg md:text-2xl font-bold text-center min-h-8"></p>
         <p class="mt-2 text-sm md:text-lg text-white/90 text-center">📍 Hãy bật Vị trí (GPS) trên điện thoại trước khi quét, rồi bấm Cho phép</p>
     </div>
@@ -465,6 +470,10 @@
             rows.forEach(function (r) { if (!knownIds.has(String(r.universityRollNo || ''))) newOnes.push(r); });
         }
         knownIds = new Set(ids);
+        var nFlag = rows.filter(function (r) { return r.flag; }).length;
+        var warn = $('live-warn');
+        if (nFlag) { warn.textContent = '⚠ ' + nFlag + ' bạn nghi trùng thiết bị (xem dấu cảnh báo trong danh sách)'; warn.classList.remove('hidden'); }
+        else { warn.classList.add('hidden'); }
         if (newOnes.length || rows.length > prevCount && prevCount > 0) {
             var c = $('live-count'); c.classList.remove('bump'); void c.offsetWidth; c.classList.add('bump');
         }
@@ -496,6 +505,12 @@
                 id.textContent = r.universityRollNo || '';
                 left.appendChild(nm);
                 left.appendChild(id);
+                if (r.flag) {
+                    var bd = document.createElement('div');
+                    bd.className = 'suspect-badge';
+                    bd.textContent = '⚠ Nghi trùng thiết bị' + (r.flagWith && r.flagWith.length ? ' với ' + r.flagWith.join(', ') : '');
+                    left.appendChild(bd);
+                }
                 var tm = document.createElement('div');
                 tm.className = 'text-xs text-gray-600 font-mono';
                 tm.textContent = String(r.time || '').slice(0, 5);

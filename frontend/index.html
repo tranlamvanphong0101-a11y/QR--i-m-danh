@@ -5,6 +5,8 @@
     <base href="/" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Điểm danh sinh viên</title>
+    <link rel="icon" type="image/png" href="/icon-192.png">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="/script.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@3/dist/fp.min.js"></script>
@@ -38,7 +40,7 @@
     <div class="w-full max-w-md bg-white/95 backdrop-blur rounded-3xl shadow-2xl p-7 my-6">
 
         <div class="text-center mb-7">
-            <div class="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-blue-600 to-violet-600 flex items-center justify-center text-3xl shadow-lg">🎓</div>
+            <div class="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-blue-600 to-violet-600 flex items-center justify-center shadow-lg"><span class="text-white font-extrabold" style="font-size:1.7rem;letter-spacing:.02em">TH</span></div>
             <h2 class="text-2xl font-extrabold text-gray-800">Điểm danh sinh viên</h2>
             <p class="text-gray-500 text-sm mt-1">Điền thông tin của bạn để xác nhận có mặt</p>
         </div>
@@ -49,6 +51,13 @@
                 class="hidden mt-3 w-full bg-indigo-500 text-white font-semibold py-2 rounded-xl">
                 🔄 Tôi đã bật, tải lại trang
             </button>
+        </div>
+        <div id="browserBlock" class="hidden mb-5 rounded-2xl p-4 text-sm bg-rose-50 border border-rose-200 text-rose-800 text-center">
+            <div class="text-3xl mb-2">🚫</div>
+            <div class="font-bold text-base mb-1">Hãy mở bằng <span id="bbHint"></span></div>
+            <div class="mb-3">Để điểm danh, dùng <b>Safari hoặc Chrome</b> trên iPhone, hoặc <b>Chrome</b> trên Android.</div>
+            <div id="bbSteps" class="mb-3"></div>
+            <button id="bbCopy" type="button" class="w-full bg-indigo-600 text-white font-semibold py-2.5 rounded-xl">📋 Sao chép liên kết</button>
         </div>
         <form id="attendanceForm" class="space-y-4">
             <div>
@@ -111,6 +120,8 @@
 
         <div id="accessMessage" class="text-sm text-center mt-4 text-red-600 font-medium"></div>
 
+        <p class="text-center text-xs text-gray-500 mt-6 select-none">© 2026 <b>TH</b> · Bản quyền thuộc về TH</p>
+
         <div id="dashboard" class="mt-6 hidden">
             <h3 class="text-lg font-semibold text-gray-800 mb-4 text-center">Lịch sử điểm danh</h3>
             <div class="overflow-x-auto">
@@ -128,6 +139,47 @@
             </div>
         </div>
     </div>
+    <script>
+    // Chỉ cho dùng 1 trình duyệt chuẩn trên mỗi điện thoại: iPhone = Safari, Android = Chrome
+    function checkBrowser(ua) {
+      var isIOS = /iPhone|iPad|iPod/i.test(ua);
+      var isAndroid = /Android/i.test(ua);
+      if (/Zalo|FBAN|FBAV|FB_IAB|Messenger|Instagram|Line\/|MicroMessenger|TikTok/i.test(ua)) {
+        return { ok: false, hint: isIOS ? 'Safari hoặc Chrome' : 'Chrome' };
+      }
+      if (isIOS) {
+        if (/FxiOS|EdgiOS|OPiOS|OPT\/|GSA\/|DuckDuckGo|coc_coc|YaBrowser|UCBrowser/i.test(ua) || !/Safari\//.test(ua)) return { ok: false, hint: 'Safari hoặc Chrome' };
+        return { ok: true };
+      }
+      if (isAndroid) {
+        if (!/Chrome\//.test(ua) || /EdgA|OPR\/|OPT\/|SamsungBrowser|Firefox|UCBrowser|CocCoc|coc_coc|YaBrowser|DuckDuckGo|; wv\)|Version\/\d/i.test(ua)) return { ok: false, hint: 'Chrome' };
+        return { ok: true };
+      }
+      // Máy tính: chỉ Chrome hoặc Safari
+      var chromeLike = /Chrome\//.test(ua) && !/Edg\/|OPR\/|Firefox|Vivaldi|Brave/i.test(ua);
+      var safari = /Safari\//.test(ua) && /Version\//.test(ua) && !/Chrome\//.test(ua);
+      return (chromeLike || safari) ? { ok: true } : { ok: false, hint: 'Chrome hoặc Safari' };
+    }
+    
+    (function () {
+        var r = checkBrowser(navigator.userAgent);
+        if (r.ok) return;
+        window.__browserBlocked = true;
+        var isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+        document.getElementById('attendanceForm').classList.add('hidden');
+        document.getElementById('locBox').classList.add('hidden');
+        var b = document.getElementById('browserBlock');
+        document.getElementById('bbHint').textContent = r.hint;
+        document.getElementById('bbSteps').textContent = isIOS
+            ? 'Bấm "Sao chép liên kết" bên dưới, mở ứng dụng Safari hoặc Chrome, dán vào thanh địa chỉ rồi vào lại.'
+            : 'Bấm "Sao chép liên kết" bên dưới, mở ứng dụng Chrome, dán vào thanh địa chỉ rồi vào lại.';
+        b.classList.remove('hidden');
+        document.getElementById('bbCopy').addEventListener('click', function () {
+            if (navigator.clipboard) navigator.clipboard.writeText(location.href);
+            this.textContent = '✅ Đã sao chép';
+        });
+    })();
+    </script>
         <script>
     (function () {
         var box = document.getElementById('locBox');
@@ -213,7 +265,7 @@
             });
         }
 
-        window.addEventListener('load', ask);
+        if (!window.__browserBlocked) window.addEventListener('load', ask);
 
         // Mã số sinh viên: tự viết hoa, bỏ khoảng trắng
         document.getElementById('universityRollNo').addEventListener('input', function () {
