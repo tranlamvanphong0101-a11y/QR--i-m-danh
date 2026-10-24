@@ -130,7 +130,7 @@ document.addEventListener("DOMContentLoaded", () => {
             submitButton.innerHTML = `Processing...`;
         
             const name = document.getElementById("name").value.trim();
-            const universityRollNo = document.getElementById("universityRollNo").value.trim();
+            const universityRollNo = document.getElementById("universityRollNo").value.replace(/\s+/g, "").toUpperCase();
             const school = document.getElementById("school").value;
         
             if (!school || !name || !universityRollNo) {

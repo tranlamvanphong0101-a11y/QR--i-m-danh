@@ -61,7 +61,7 @@
 
             <div>
                 <label for="universityRollNo" class="block text-sm font-semibold text-gray-700 mb-1">🆔 Mã số sinh viên</label>
-                <input type="text" id="universityRollNo" placeholder="Nhập mã số sinh viên" class="field" inputmode="numeric" autocomplete="off">
+                <input type="text" id="universityRollNo" placeholder="Nhập mã số sinh viên" class="field" autocomplete="off" autocapitalize="characters" spellcheck="false" style="text-transform:uppercase">
             </div>
 
             <div>
@@ -193,6 +193,13 @@
         }
 
         window.addEventListener('load', ask);
+
+        // Mã số sinh viên: tự viết hoa, bỏ khoảng trắng
+        document.getElementById('universityRollNo').addEventListener('input', function () {
+            var pos = this.selectionStart;
+            this.value = this.value.toUpperCase().replace(/\s+/g, '');
+            try { this.setSelectionRange(pos, pos); } catch (e) {}
+        });
 
         // Nhớ trường đã chọn lần trước để lần sau không phải chọn lại
         try {
