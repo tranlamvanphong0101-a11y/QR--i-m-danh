@@ -966,6 +966,23 @@ app.get('/api/export/attendance', async (req, res) => {
     res.status(500).json({ status: "error", message: error.message });
   }
 });
+app.delete('/api/export/attendance', async (req, res) => {
+  try {
+    const adminPass = req.headers['x-admin-password'];
+    if (!process.env.ADMIN_PASSWORD || adminPass !== process.env.ADMIN_PASSWORD) {
+      return res.status(401).json({ status: "error", message: "Sai mật khẩu giảng viên" });
+    }
+    const date = String(req.query.date || '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ status: "error", message: "Ngày không hợp lệ" });
+    }
+    const result = await Attendance.deleteMany({ date });
+    res.json({ status: "success", deleted: result.deletedCount });
+  } catch (error) {
+    console.error("Delete error:", error);
+    res.status(500).json({ status: "error", message: error.message });
+  }
+});
 // Error Handlers
 app.use((req, res) => {
   res.status(404).json({ status: "error", message: "Route not found" });
