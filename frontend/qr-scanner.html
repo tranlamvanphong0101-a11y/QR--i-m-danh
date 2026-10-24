@@ -1,176 +1,486 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="vi" translate="no">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tạo mã QR điểm danh</title>
-        <link rel="manifest" href="/manifest.json">
+    <meta name="google" content="notranslate">
+    <title>Điểm danh QR</title>
+    <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#6366f1">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Điểm danh">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
     <style>
         body {
             min-height: 100vh;
             background: linear-gradient(135deg, #6366f1 0%, #a855f7 45%, #ec4899 100%);
             background-attachment: fixed;
         }
+        .card { background: #ffffff; }
+        .field {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 2px solid #94a3b8;
+            border-radius: 0.9rem;
+            background: #ffffff;
+            color: #111827;
+        }
+        .field:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.18); }
         .spinner { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .qr-frame {
-            padding: 6px;
-            border-radius: 28px;
-            background: linear-gradient(135deg, #22d3ee, #6366f1, #ec4899);
-        }
+        .qr-frame { padding: 6px; border-radius: 28px; background: linear-gradient(135deg, #22d3ee, #6366f1, #ec4899); }
+        .step-dot { width: 2rem; height: 2rem; border-radius: 9999px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; background: #e5e7eb; color: #4b5563; }
+        .step-dot.active { background: linear-gradient(135deg, #6366f1, #ec4899); color: #fff; }
+        .step-dot.done { background: #10b981; color: #fff; }
+        .step-label { font-size: 0.72rem; color: #4b5563; margin-top: 0.25rem; font-weight: 600; }
+        .step-label.active { color: #4338ca; }
     </style>
 </head>
-<body class="flex items-center justify-center p-4">
-    <div class="bg-white/95 backdrop-blur rounded-3xl shadow-2xl max-w-md w-full p-8 text-center">
-        <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center text-3xl shadow-lg">📱</div>
-        <h1 class="text-2xl font-extrabold text-gray-800">Tạo mã QR điểm danh</h1>
-        <p class="text-gray-500 text-sm mt-1 mb-6">Nhập mật khẩu, bấm tạo mã rồi chiếu cho lớp quét</p>
+<body class="flex items-start justify-center p-4">
+    <div class="card w-full max-w-md rounded-3xl shadow-2xl p-6 my-4">
 
-        <div class="flex justify-center mb-5">
-            <div id="qr-container" class="relative">
-                <div class="qr-frame">
-                    <img id="qr-image" src="" alt="Mã QR" class="w-64 h-64 rounded-3xl bg-white hidden">
-                </div>
-                <div id="qr-loading" class="absolute inset-0 flex items-center justify-center hidden">
-                    <div class="spinner rounded-full h-12 w-12 border-t-4 border-b-4 border-indigo-500"></div>
-                </div>
+        <!-- Thanh các bước -->
+        <div class="flex items-start justify-between mb-6 px-2">
+            <div class="flex flex-col items-center flex-1">
+                <div id="dot1" class="step-dot active">1</div>
+                <div id="lbl1" class="step-label active">Tạo mã QR</div>
+            </div>
+            <div class="flex-1 h-0.5 bg-gray-300 mt-4"></div>
+            <div class="flex flex-col items-center flex-1">
+                <div id="dot2" class="step-dot">2</div>
+                <div id="lbl2" class="step-label">Sinh viên quét</div>
+            </div>
+            <div class="flex-1 h-0.5 bg-gray-300 mt-4"></div>
+            <div class="flex flex-col items-center flex-1">
+                <div id="dot3" class="step-dot">3</div>
+                <div id="lbl3" class="step-label">Xuất file</div>
             </div>
         </div>
 
-        <div id="error-message" class="text-rose-500 font-medium mb-3 min-h-6 text-sm"></div>
+        <!-- BƯỚC 1: TẠO MÃ QR -->
+        <div id="panel-qr" class="text-center">
+            <h1 class="text-2xl font-extrabold text-gray-900">Tạo mã QR điểm danh</h1>
+            <p class="text-gray-600 text-sm mt-1 mb-5">Nhập mật khẩu, chọn bán kính rồi bấm tạo mã để chiếu cho lớp quét</p>
 
-        <div id="session-info" class="text-sm text-gray-600 mb-4 hidden bg-indigo-50 rounded-xl p-3">
-            Mã phiên: <span id="session-id" class="font-mono text-xs break-all"></span><br>
-            <span class="font-semibold text-indigo-600">⏱ Còn hiệu lực: <span id="expiry-time"></span></span>
+            <div class="flex justify-center mb-4">
+                <div id="qr-container" class="relative">
+                    <div class="qr-frame">
+                        <img id="qr-image" src="" alt="Mã QR" class="w-64 h-64 rounded-3xl bg-white hidden">
+                    </div>
+                    <div id="qr-loading" class="absolute inset-0 flex items-center justify-center hidden">
+                        <div class="spinner rounded-full h-12 w-12 border-t-4 border-b-4 border-indigo-500"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="error-message" class="text-rose-600 font-medium mb-3 min-h-6 text-sm"></div>
+
+            <div id="session-info" class="text-sm text-gray-700 mb-4 hidden bg-indigo-50 rounded-xl p-3">
+                Mã phiên: <span id="session-id" class="font-mono text-xs break-all"></span><br>
+                <span class="font-semibold text-indigo-700">⏱ Còn hiệu lực: <span id="expiry-time"></span></span>
+            </div>
+
+            <label for="radius" class="block text-left text-sm font-semibold text-gray-800 mb-1">📏 Bán kính điểm danh</label>
+            <select id="radius" class="field mb-3">
+                <option value="50">50 mét (phòng nhỏ)</option>
+                <option value="100" selected>100 mét (khuyên dùng)</option>
+                <option value="150">150 mét (khu rộng)</option>
+            </select>
+
+            <input type="password" id="adminPassword" placeholder="🔒 Mật khẩu giảng viên" class="field mb-3">
+
+            <button id="generate-btn"
+                class="w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:opacity-90 active:scale-95 transition disabled:opacity-60">
+                Tạo mã QR
+            </button>
+            <p class="text-xs text-gray-500 mt-3">📍 Cho phép vị trí: sinh viên phải ở gần bạn mới điểm danh được</p>
         </div>
 
-        <input type="password" id="adminPassword" placeholder="🔒 Mật khẩu giảng viên"
-               class="w-full p-3 border-2 border-gray-200 rounded-xl mb-3 focus:outline-none focus:border-indigo-500">
-        <button id="generate-btn"
-                class="w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:opacity-90 active:scale-95 transition disabled:opacity-60">
-            Tạo mã QR
-        </button>
-        <p class="text-xs text-gray-400 mt-4">📍 Hãy cho phép vị trí: sinh viên phải ở gần bạn mới điểm danh được</p>
+        <!-- BƯỚC 2: SINH VIÊN ĐANG ĐIỂM DANH -->
+        <div id="panel-live" class="hidden mt-6 pt-5 border-t-2 border-gray-200">
+            <div class="flex items-center justify-between mb-2">
+                <h2 class="text-lg font-extrabold text-gray-900">Sinh viên đã điểm danh</h2>
+                <div class="text-right">
+                    <span id="live-count" class="text-3xl font-extrabold text-indigo-600">0</span>
+                    <span class="text-sm text-gray-600"> người</span>
+                </div>
+            </div>
+            <p id="live-status" class="text-xs text-gray-500 mb-2">Tự cập nhật mỗi 5 giây (hôm nay)</p>
+            <div id="live-list" class="max-h-48 overflow-y-auto rounded-xl border-2 border-gray-200 divide-y divide-gray-100 text-sm text-gray-800 bg-white"></div>
+            <button id="end-btn"
+                class="w-full mt-4 bg-emerald-600 text-white font-bold py-3 rounded-xl shadow hover:bg-emerald-700 active:scale-95 transition">
+                ✅ Kết thúc buổi &amp; xuất file
+            </button>
+        </div>
+
+        <!-- BƯỚC 3: XUẤT FILE -->
+        <div id="panel-export" class="hidden mt-6 pt-5 border-t-2 border-gray-200">
+            <h2 class="text-lg font-extrabold text-gray-900 mb-1">Xuất file Excel</h2>
+            <p class="text-xs text-gray-600 mb-3">Điền kết quả điểm danh vào file danh sách lớp của bạn (đúng mẫu: dòng 2 là tiêu đề, từ dòng 3 là sinh viên).</p>
+
+            <label for="dateInput" class="block text-sm font-semibold text-gray-800 mb-1">📅 Ngày điểm danh</label>
+            <input type="date" id="dateInput" class="field mb-3">
+
+            <label for="rosterFile" class="block text-sm font-semibold text-gray-800 mb-1">📁 File danh sách lớp (.xlsx)</label>
+            <input type="file" id="rosterFile" accept=".xlsx" class="field mb-3">
+
+            <button id="exportBtn"
+                class="w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white font-bold py-3 rounded-xl shadow-lg hover:opacity-90 active:scale-95 transition disabled:opacity-60">
+                ⬇️ Xuất file Excel
+            </button>
+            <p id="msg" class="text-center mt-4 text-sm font-medium"></p>
+            <div id="detail" class="mt-2 text-sm text-gray-700"></div>
+            <button id="back-btn" class="w-full mt-3 text-sm text-indigo-700 underline">← Quay lại tạo mã mới</button>
+        </div>
     </div>
 
     <script>
-        const API_BASE = '';
-        let currentSessionId = null;
-        let expiryInterval = null;
-        let autoRefreshTimerId = null;
+    // ===== Cài đặt chung =====
+    var API_BASE = '';
+    var currentSessionId = null;
+    var expiryInterval = null;
+    var autoRefreshTimerId = null;
+    var pollTimer = null;
 
-        function updateExpiryTimer(expiresInMs) {
-            clearInterval(expiryInterval);
-            let remainingTimeMs = expiresInMs;
+    function $(id) { return document.getElementById(id); }
 
-            const updateDisplay = () => {
-                if (remainingTimeMs <= 0) {
-                    clearInterval(expiryInterval);
-                    document.getElementById('expiry-time').textContent = `0p 0s - Đã hết hạn`;
-                    document.getElementById('qr-image').classList.add('hidden');
-                    showError('Mã QR đã hết hạn. Hãy tạo mã mới.');
-                    currentSessionId = null;
-                    return;
-                }
-                const minutes = Math.floor(remainingTimeMs / 60000);
-                const seconds = Math.floor((remainingTimeMs % 60000) / 1000);
-                document.getElementById('expiry-time').textContent = `${minutes}p ${seconds}s`;
-            };
+    function todayLocal() {
+        return new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    }
 
-            updateDisplay();
-            expiryInterval = setInterval(() => {
-                remainingTimeMs -= 1000;
-                updateDisplay();
-            }, 1000);
+    // ===== Thanh các bước =====
+    function setStep(n) {
+        for (var i = 1; i <= 3; i++) {
+            var dot = $('dot' + i), lbl = $('lbl' + i);
+            dot.className = 'step-dot' + (i < n ? ' done' : (i === n ? ' active' : ''));
+            lbl.className = 'step-label' + (i === n ? ' active' : '');
+            dot.textContent = i < n ? '✓' : String(i);
         }
+    }
 
-        function showError(message) {
-            document.getElementById('error-message').textContent = message;
-        }
-
-        function clearError() {
-            document.getElementById('error-message').textContent = '';
-        }
-
-        async function generateQR() {
-            const generateBtn = document.getElementById('generate-btn');
-
-            if (autoRefreshTimerId) {
-                clearTimeout(autoRefreshTimerId);
-                autoRefreshTimerId = null;
-            }
-
-            generateBtn.disabled = true;
-            generateBtn.textContent = "Đang tạo mã...";
-            clearError();
-            document.getElementById('qr-image').classList.add('hidden');
-            document.getElementById('qr-loading').classList.remove('hidden');
-            document.getElementById('session-info').classList.add('hidden');
-
-            try {
-                const pos = await new Promise((resolve, reject) => {
-                    navigator.geolocation.getCurrentPosition(
-                        p => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
-                        () => reject(new Error('Hãy cho phép truy cập vị trí rồi bấm lại')),
-                        { enableHighAccuracy: true, timeout: 15000 }
-                    );
-                });
-                const response = await axios.get(`${API_BASE}/api/generate-qr`, {
-                    params: { lat: pos.lat, lng: pos.lng },
-                    headers: { 'x-admin-password': document.getElementById('adminPassword').value }
-                });
-                const data = response.data;
-
-                if (data.status === "success" && data.qrImage && data.sessionId && typeof data.expiresIn === 'number') {
-                    const qrImage = document.getElementById('qr-image');
-                    qrImage.onload = () => {
-                        qrImage.classList.remove('hidden');
-                        document.getElementById('qr-loading').classList.add('hidden');
-                    };
-                    qrImage.onerror = () => {
-                        showError('Không tải được ảnh mã QR');
-                        document.getElementById('qr-loading').classList.add('hidden');
-                    };
-                    qrImage.src = `${API_BASE}${data.qrImage}?t=${Date.now()}`;
-
-                    document.getElementById('session-id').textContent = data.sessionId;
-                    document.getElementById('session-info').classList.remove('hidden');
-
-                    currentSessionId = data.sessionId;
-                    updateExpiryTimer(data.expiresIn);
-
-                    if (data.expiresIn > 10000) {
-                        autoRefreshTimerId = setTimeout(() => {
-                            generateQR();
-                        }, data.expiresIn - 10000);
-                    } else if (data.expiresIn > 0) {
-                        autoRefreshTimerId = setTimeout(() => {}, data.expiresIn);
-                    }
-                } else {
-                    throw new Error(data.message || 'Phản hồi không hợp lệ từ máy chủ');
-                }
-            } catch (error) {
-                console.error("QR generation failed:", error);
-                showError(error.response?.data?.message || error.message || 'Không tạo được mã QR');
-                document.getElementById('qr-loading').classList.add('hidden');
+    // ===== BƯỚC 1: TẠO MÃ QR =====
+    function updateExpiryTimer(expiresInMs) {
+        clearInterval(expiryInterval);
+        var remaining = expiresInMs;
+        function show() {
+            if (remaining <= 0) {
+                clearInterval(expiryInterval);
+                $('expiry-time').textContent = '0p 0s - Đã hết hạn';
+                $('qr-image').classList.add('hidden');
+                showError('Mã QR đã hết hạn. Hãy tạo mã mới.');
                 currentSessionId = null;
-            } finally {
-                generateBtn.disabled = false;
-                generateBtn.textContent = "Tạo mã QR";
+                return;
+            }
+            var m = Math.floor(remaining / 60000);
+            var s = Math.floor((remaining % 60000) / 1000);
+            $('expiry-time').textContent = m + 'p ' + s + 's';
+        }
+        show();
+        expiryInterval = setInterval(function () { remaining -= 1000; show(); }, 1000);
+    }
+
+    function showError(message) { $('error-message').textContent = message; }
+    function clearError() { $('error-message').textContent = ''; }
+
+    async function generateQR() {
+        var btn = $('generate-btn');
+        if (autoRefreshTimerId) { clearTimeout(autoRefreshTimerId); autoRefreshTimerId = null; }
+
+        btn.disabled = true;
+        btn.textContent = 'Đang tạo mã...';
+        clearError();
+        $('qr-image').classList.add('hidden');
+        $('qr-loading').classList.remove('hidden');
+        $('session-info').classList.add('hidden');
+
+        try {
+            var pos = await new Promise(function (resolve, reject) {
+                navigator.geolocation.getCurrentPosition(
+                    function (p) { resolve({ lat: p.coords.latitude, lng: p.coords.longitude }); },
+                    function () { reject(new Error('Hãy cho phép truy cập vị trí rồi bấm lại')); },
+                    { enableHighAccuracy: true, timeout: 15000 }
+                );
+            });
+            var response = await axios.get(API_BASE + '/api/generate-qr', {
+                params: { lat: pos.lat, lng: pos.lng, radius: $('radius').value },
+                headers: { 'x-admin-password': $('adminPassword').value }
+            });
+            var data = response.data;
+
+            if (data.status === 'success' && data.qrImage && data.sessionId && typeof data.expiresIn === 'number') {
+                var img = $('qr-image');
+                img.onload = function () { img.classList.remove('hidden'); $('qr-loading').classList.add('hidden'); };
+                img.onerror = function () { showError('Không tải được ảnh mã QR'); $('qr-loading').classList.add('hidden'); };
+                img.src = API_BASE + data.qrImage + '?t=' + Date.now();
+
+                $('session-id').textContent = data.sessionId;
+                $('session-info').classList.remove('hidden');
+                currentSessionId = data.sessionId;
+                updateExpiryTimer(data.expiresIn);
+
+                if (data.expiresIn > 10000) {
+                    autoRefreshTimerId = setTimeout(generateQR, data.expiresIn - 10000);
+                }
+
+                // Sang bước 2
+                $('panel-export').classList.add('hidden');
+                $('panel-live').classList.remove('hidden');
+                setStep(2);
+                startPolling();
+            } else {
+                throw new Error(data.message || 'Phản hồi không hợp lệ từ máy chủ');
+            }
+        } catch (error) {
+            console.error('QR generation failed:', error);
+            showError((error.response && error.response.data && error.response.data.message) || error.message || 'Không tạo được mã QR');
+            $('qr-loading').classList.add('hidden');
+            currentSessionId = null;
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Tạo mã QR';
+        }
+    }
+
+    // ===== BƯỚC 2: DANH SÁCH SINH VIÊN ĐÃ ĐIỂM DANH =====
+    function renderLive(rows) {
+        $('live-count').textContent = String(rows.length);
+        var list = $('live-list');
+        list.innerHTML = '';
+        if (!rows.length) {
+            var empty = document.createElement('div');
+            empty.className = 'p-3 text-gray-500 text-center';
+            empty.textContent = 'Chưa có ai điểm danh';
+            list.appendChild(empty);
+            return;
+        }
+        rows.slice().sort(function (a, b) { return String(b.time || '').localeCompare(String(a.time || '')); })
+            .forEach(function (r) {
+                var row = document.createElement('div');
+                row.className = 'flex items-center justify-between px-3 py-2';
+                var left = document.createElement('div');
+                var nm = document.createElement('div');
+                nm.className = 'font-semibold';
+                nm.textContent = r.name || '(không tên)';
+                var id = document.createElement('div');
+                id.className = 'text-xs text-gray-500';
+                id.textContent = r.universityRollNo || '';
+                left.appendChild(nm);
+                left.appendChild(id);
+                var tm = document.createElement('div');
+                tm.className = 'text-xs text-gray-600 font-mono';
+                tm.textContent = String(r.time || '').slice(0, 5);
+                row.appendChild(left);
+                row.appendChild(tm);
+                list.appendChild(row);
+            });
+    }
+
+    async function pollAttendance() {
+        var pw = $('adminPassword').value;
+        if (!pw) return;
+        try {
+            var res = await fetch(API_BASE + '/api/export/attendance?date=' + encodeURIComponent(todayLocal()), {
+                headers: { 'x-admin-password': pw }
+            });
+            if (!res.ok) { $('live-status').textContent = 'Chưa lấy được danh sách (kiểm tra mật khẩu)'; return; }
+            var json = await res.json();
+            $('live-status').textContent = 'Tự cập nhật mỗi 5 giây (hôm nay)';
+            renderLive(json.data || []);
+        } catch (e) {
+            $('live-status').textContent = 'Mất kết nối, đang thử lại...';
+        }
+    }
+
+    function startPolling() {
+        clearInterval(pollTimer);
+        pollAttendance();
+        pollTimer = setInterval(pollAttendance, 5000);
+    }
+
+    // ===== BƯỚC 3: XUẤT FILE =====
+    // BEGIN CORE
+    function normId(v) {
+        return String(v == null ? '' : v).trim().toUpperCase();
+    }
+
+    function shortTime(t) {
+        var s = String(t || '').trim();
+        var m = s.match(/^(\d{1,2}):(\d{2})/);
+        return m ? (m[1].length === 1 ? '0' + m[1] : m[1]) + ':' + m[2] : s;
+    }
+
+    async function buildWorkbook(ExcelJS, buffer, dateStr, records) {
+        var HEADER_ROW = 2, FIRST = 3, C_STT = 1, C_ID = 2, C_NAME = 3, C_TIME = 4, C_DATE = 5;
+
+        var wb = new ExcelJS.Workbook();
+        await wb.xlsx.load(buffer);
+        var ws = wb.worksheets[0];
+        if (!ws) throw new Error('File Excel không có trang tính nào');
+
+        // Dòng cuối của danh sách (dòng cuối cùng có MSSV)
+        var last = FIRST - 1;
+        for (var r = FIRST; r <= ws.rowCount; r++) {
+            if (normId(ws.getCell(r, C_ID).text)) last = r;
+        }
+        if (last < FIRST) throw new Error('Không thấy MSSV nào từ dòng 3 trở đi. Hãy kiểm tra lại file mẫu.');
+
+        // Gom bản ghi theo MSSV (giữ giờ sớm nhất nếu trùng)
+        var byId = {};
+        records.forEach(function (rec) {
+            var k = normId(rec.universityRollNo);
+            if (!k) return;
+            if (!byId[k] || String(rec.time || '') < String(byId[k].time || '')) byId[k] = rec;
+        });
+
+        // Xóa dữ liệu cũ của cột Thời gian và cột ngày (giữ nguyên định dạng)
+        for (var rr = FIRST; rr <= last; rr++) {
+            ws.getCell(rr, C_TIME).value = null;
+            ws.getCell(rr, C_DATE).value = null;
+        }
+
+        var used = {};
+        var present = 0;
+        for (var row = FIRST; row <= last; row++) {
+            var key = normId(ws.getCell(row, C_ID).text);
+            var rec = byId[key];
+            if (rec) {
+                ws.getCell(row, C_TIME).value = shortTime(rec.time);
+                ws.getCell(row, C_DATE).value = 1;
+                used[key] = true;
+                present++;
             }
         }
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js').catch(() => {});
-        }
-        document.addEventListener("DOMContentLoaded", () => {
-            document.getElementById('generate-btn').addEventListener('click', generateQR);
+
+        // Sinh viên điểm danh nhưng không có trong danh sách: thêm xuống cuối, tô vàng
+        var extras = Object.keys(byId).filter(function (k) { return !used[k]; });
+        var newLast = last;
+        extras.forEach(function (k) {
+            newLast++;
+            var rec = byId[k];
+            for (var c = 1; c <= 5; c++) {
+                var src = ws.getCell(last, c);
+                var dst = ws.getCell(newLast, c);
+                dst.style = JSON.parse(JSON.stringify(src.style || {}));
+                dst.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } };
+            }
+            var prevStt = Number(ws.getCell(newLast - 1, C_STT).value);
+            ws.getCell(newLast, C_STT).value = isNaN(prevStt) ? '' : prevStt + 1;
+            ws.getCell(newLast, C_ID).value = String(rec.universityRollNo);
+            ws.getCell(newLast, C_NAME).value = String(rec.name || '').toUpperCase();
+            ws.getCell(newLast, C_TIME).value = shortTime(rec.time);
+            ws.getCell(newLast, C_DATE).value = 1;
+            present++;
         });
+
+        // Tiêu đề cột ngày: ngày điểm danh
+        var p = dateStr.split('-').map(Number);
+        var hc = ws.getCell(HEADER_ROW, C_DATE);
+        hc.value = new Date(Date.UTC(p[0], p[1] - 1, p[2]));
+        hc.numFmt = 'dd/mm';
+
+        // Tổng số có mặt ở E1, mở rộng vùng lọc
+        ws.getCell(1, C_DATE).value = { formula: 'SUM(E' + FIRST + ':E' + newLast + ')', result: present };
+        ws.autoFilter = 'A' + HEADER_ROW + ':E' + newLast;
+
+        var out = await wb.xlsx.writeBuffer();
+        return {
+            buffer: out,
+            present: present,
+            total: last - FIRST + 1,
+            extras: extras.map(function (k) { return byId[k]; })
+        };
+    }
+    // END CORE
+
+    function setMsg(text, ok) {
+        var el = $('msg');
+        el.textContent = text;
+        el.className = 'text-center mt-4 text-sm font-medium ' + (ok ? 'text-emerald-700' : 'text-rose-600');
+    }
+
+    function endSession() {
+        // Dừng làm mới mã QR, ẩn mã, mở bước xuất file
+        if (autoRefreshTimerId) { clearTimeout(autoRefreshTimerId); autoRefreshTimerId = null; }
+        clearInterval(expiryInterval);
+        $('qr-image').classList.add('hidden');
+        $('session-info').classList.add('hidden');
+        currentSessionId = null;
+        showError('Đã đóng mã QR. Mã cũ chỉ còn hiệu lực tối đa vài chục giây.');
+        pollAttendance();
+        $('dateInput').value = todayLocal();
+        $('panel-export').classList.remove('hidden');
+        setStep(3);
+        $('panel-export').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    async function doExport() {
+        var btn = $('exportBtn');
+        var detail = $('detail');
+        detail.innerHTML = '';
+        setMsg('', true);
+
+        var date = $('dateInput').value;
+        var file = $('rosterFile').files[0];
+        var pw = $('adminPassword').value;
+        if (!pw) return setMsg('Hãy nhập mật khẩu giảng viên ở phần trên.', false);
+        if (!date) return setMsg('Hãy chọn ngày điểm danh.', false);
+        if (!file) return setMsg('Hãy chọn file danh sách lớp (.xlsx).', false);
+
+        btn.disabled = true;
+        btn.textContent = 'Đang xử lý...';
+        try {
+            var res = await fetch(API_BASE + '/api/export/attendance?date=' + encodeURIComponent(date), {
+                headers: { 'x-admin-password': pw }
+            });
+            var json = await res.json().catch(function () { return {}; });
+            if (!res.ok) throw new Error(json.message || 'Không lấy được dữ liệu từ máy chủ');
+
+            var buf = await file.arrayBuffer();
+            var result = await buildWorkbook(ExcelJS, buf, date, json.data || []);
+
+            var blob = new Blob([result.buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            var a = document.createElement('a');
+            var d = date.split('-');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'Diem-danh_' + d[2] + '-' + d[1] + '-' + d[0] + '.xlsx';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+
+            setMsg('✅ Đã xuất file: ' + result.present + ' / ' + result.total + ' sinh viên có mặt.', true);
+            if (result.extras.length) {
+                var box = document.createElement('div');
+                box.className = 'bg-amber-50 border border-amber-300 rounded-xl p-3';
+                box.appendChild(document.createTextNode('⚠️ ' + result.extras.length + ' sinh viên điểm danh nhưng không có trong danh sách (đã thêm cuối bảng, tô vàng): ' +
+                    result.extras.map(function (r) { return String(r.universityRollNo); }).join(', ') + '. Thường do gõ sai MSSV.'));
+                detail.appendChild(box);
+            }
+        } catch (e) {
+            setMsg(e.message || 'Có lỗi xảy ra', false);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '⬇️ Xuất file Excel';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        $('generate-btn').addEventListener('click', generateQR);
+        $('end-btn').addEventListener('click', endSession);
+        $('exportBtn').addEventListener('click', doExport);
+        $('back-btn').addEventListener('click', function () {
+            $('panel-export').classList.add('hidden');
+            clearError();
+            setStep(1);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(function () {});
+        }
+    });
     </script>
 </body>
 </html>
