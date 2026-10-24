@@ -583,7 +583,7 @@ function validateAttendance(req, res, next) {
 app.post("/mark-attendance", validateAttendance, async (req, res) => {
   try {
     const { universityRollNo, deviceFingerprint, location } = req.body;
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
 
     const [existing, existingDevice] = await Promise.all([
       Attendance.findOne({ universityRollNo, date: today }),
@@ -638,7 +638,7 @@ app.post("/mark-attendance", validateAttendance, async (req, res) => {
     const attendance = await Attendance.create({
       ...req.body,
       date: today,
-      time: new Date().toLocaleTimeString('en-IN', { hour12: false }),
+      time: new Date().toLocaleTimeString('en-GB', { hour12: false, timeZone: 'Asia/Ho_Chi_Minh' }),
       status: "present",
       studentId: student._id,
       distanceFromClass: distance
@@ -936,7 +936,26 @@ app.get('/api/students/:rollNo/community', async (req, res) => {
 
 // --- END NEW ALGORITHM ENDPOINTS ---
 
-
+app.get('/api/export/attendance', async (req, res) => {
+  try {
+    const adminPass = req.headers['x-admin-password'];
+    if (!process.env.ADMIN_PASSWORD || adminPass !== process.env.ADMIN_PASSWORD) {
+      return res.status(401).json({ status: "error", message: "Sai mật khẩu giảng viên" });
+    }
+    const date = String(req.query.date || '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ status: "error", message: "Ngày không hợp lệ" });
+    }
+    const rows = await Attendance.find({ date, status: 'present' }).sort({ time: 1 }).lean();
+    res.json({
+      status: "success",
+      data: rows.map(r => ({ universityRollNo: r.universityRollNo, name: r.name, time: r.time }))
+    });
+  } catch (error) {
+    console.error("Export error:", error);
+    res.status(500).json({ status: "error", message: error.message });
+  }
+});
 // Error Handlers
 app.use((req, res) => {
   res.status(404).json({ status: "error", message: "Route not found" });
