@@ -1,80 +1,84 @@
 <!DOCTYPE html>
-<html>
+<html lang="vi">
 <head>
-    <title>Admin QR Generator</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tạo mã QR điểm danh</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <style>
         body {
             min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            background: linear-gradient(135deg, #6366f1 0%, #a855f7 45%, #ec4899 100%);
+            background-attachment: fixed;
         }
-        .spinner {
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
+        .spinner { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .qr-frame {
+            padding: 6px;
+            border-radius: 28px;
+            background: linear-gradient(135deg, #22d3ee, #6366f1, #ec4899);
         }
     </style>
 </head>
-<body class="bg-gray-100">
-    <div class="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center">
-        <h1 class="text-2xl font-bold mb-6">Admin QR Generator</h1>
-        
-        <div class="flex justify-center mb-6">
+<body class="flex items-center justify-center p-4">
+    <div class="bg-white/95 backdrop-blur rounded-3xl shadow-2xl max-w-md w-full p-8 text-center">
+        <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center text-3xl shadow-lg">📱</div>
+        <h1 class="text-2xl font-extrabold text-gray-800">Tạo mã QR điểm danh</h1>
+        <p class="text-gray-500 text-sm mt-1 mb-6">Nhập mật khẩu, bấm tạo mã rồi chiếu cho lớp quét</p>
+
+        <div class="flex justify-center mb-5">
             <div id="qr-container" class="relative">
-                <img id="qr-image" src="" alt="QR Code" class="w-64 h-64 border-4 border-blue-500 rounded-lg hidden">
+                <div class="qr-frame">
+                    <img id="qr-image" src="" alt="Mã QR" class="w-64 h-64 rounded-3xl bg-white hidden">
+                </div>
                 <div id="qr-loading" class="absolute inset-0 flex items-center justify-center hidden">
-                    <div class="spinner rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+                    <div class="spinner rounded-full h-12 w-12 border-t-4 border-b-4 border-indigo-500"></div>
                 </div>
             </div>
         </div>
-        
-        <div id="error-message" class="text-red-500 mb-4 min-h-6"></div>
-        
-        <div id="session-info" class="text-sm text-gray-600 mb-4 hidden">
-            Session ID: <span id="session-id" class="font-mono"></span><br>
-            Expires in: <span id="expiry-time"></span> </div>
-        <input type="password" id="adminPassword" placeholder="Mật khẩu giảng viên"
-       class="w-full p-3 border border-gray-300 rounded-lg mb-3">
-        <button id="generate-btn" class="bg-blue-600 text-white py-2 px-6 rounded hover:bg-blue-700 transition-colors">
-            Generate QR Code
+
+        <div id="error-message" class="text-rose-500 font-medium mb-3 min-h-6 text-sm"></div>
+
+        <div id="session-info" class="text-sm text-gray-600 mb-4 hidden bg-indigo-50 rounded-xl p-3">
+            Mã phiên: <span id="session-id" class="font-mono text-xs break-all"></span><br>
+            <span class="font-semibold text-indigo-600">⏱ Còn hiệu lực: <span id="expiry-time"></span></span>
+        </div>
+
+        <input type="password" id="adminPassword" placeholder="🔒 Mật khẩu giảng viên"
+               class="w-full p-3 border-2 border-gray-200 rounded-xl mb-3 focus:outline-none focus:border-indigo-500">
+        <button id="generate-btn"
+                class="w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:opacity-90 active:scale-95 transition disabled:opacity-60">
+            Tạo mã QR
         </button>
+        <p class="text-xs text-gray-400 mt-4">📍 Hãy cho phép vị trí: sinh viên phải ở gần bạn mới điểm danh được</p>
     </div>
 
     <script>
         const API_BASE = '';
         let currentSessionId = null;
         let expiryInterval = null;
-        let autoRefreshTimerId = null; // <<< MODIFIED: Added autoRefreshTimerId
+        let autoRefreshTimerId = null;
 
-        // MODIFIED: updateExpiryTimer to take milliseconds and calculate min/sec
         function updateExpiryTimer(expiresInMs) {
             clearInterval(expiryInterval);
-
             let remainingTimeMs = expiresInMs;
 
             const updateDisplay = () => {
                 if (remainingTimeMs <= 0) {
                     clearInterval(expiryInterval);
-                    document.getElementById('expiry-time').textContent = `0m 0s - Expired`;
+                    document.getElementById('expiry-time').textContent = `0p 0s - Đã hết hạn`;
                     document.getElementById('qr-image').classList.add('hidden');
-                    showError('QR code has expired. Please generate a new one.');
-                    currentSessionId = null; 
-                    // No need to clear autoRefreshTimerId here as generateQR handles its own timer
+                    showError('Mã QR đã hết hạn. Hãy tạo mã mới.');
+                    currentSessionId = null;
                     return;
                 }
-
                 const minutes = Math.floor(remainingTimeMs / 60000);
                 const seconds = Math.floor((remainingTimeMs % 60000) / 1000);
-                document.getElementById('expiry-time').textContent = `${minutes}m ${seconds}s`;
+                document.getElementById('expiry-time').textContent = `${minutes}p ${seconds}s`;
             };
 
-            updateDisplay(); // Initial display
-
+            updateDisplay();
             expiryInterval = setInterval(() => {
                 remainingTimeMs -= 1000;
                 updateDisplay();
@@ -82,28 +86,23 @@
         }
 
         function showError(message) {
-            const errorElement = document.getElementById('error-message');
-            errorElement.textContent = message;
-            // errorElement.classList.remove('hidden'); // Assuming showError implies visibility
+            document.getElementById('error-message').textContent = message;
         }
 
         function clearError() {
-            const errorElement = document.getElementById('error-message');
-            errorElement.textContent = '';
-            // errorElement.classList.add('hidden'); // Assuming clearError implies invisibility
+            document.getElementById('error-message').textContent = '';
         }
 
         async function generateQR() {
             const generateBtn = document.getElementById('generate-btn');
-            
-            // MODIFIED: Clear previous auto-refresh timer
+
             if (autoRefreshTimerId) {
                 clearTimeout(autoRefreshTimerId);
                 autoRefreshTimerId = null;
             }
 
             generateBtn.disabled = true;
-            generateBtn.textContent = "Generating...";
+            generateBtn.textContent = "Đang tạo mã...";
             clearError();
             document.getElementById('qr-image').classList.add('hidden');
             document.getElementById('qr-loading').classList.remove('hidden');
@@ -111,18 +110,18 @@
 
             try {
                 const pos = await new Promise((resolve, reject) => {
-    navigator.geolocation.getCurrentPosition(
-        p => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
-        () => reject(new Error('Hãy cho phép truy cập vị trí rồi bấm lại')),
-        { enableHighAccuracy: true, timeout: 15000 }
-    );
-});
-const response = await axios.get(`${API_BASE}/api/generate-qr`, {
-    params: { lat: pos.lat, lng: pos.lng },
-    headers: { 'x-admin-password': document.getElementById('adminPassword').value }
-});
+                    navigator.geolocation.getCurrentPosition(
+                        p => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
+                        () => reject(new Error('Hãy cho phép truy cập vị trí rồi bấm lại')),
+                        { enableHighAccuracy: true, timeout: 15000 }
+                    );
+                });
+                const response = await axios.get(`${API_BASE}/api/generate-qr`, {
+                    params: { lat: pos.lat, lng: pos.lng },
+                    headers: { 'x-admin-password': document.getElementById('adminPassword').value }
+                });
                 const data = response.data;
-                
+
                 if (data.status === "success" && data.qrImage && data.sessionId && typeof data.expiresIn === 'number') {
                     const qrImage = document.getElementById('qr-image');
                     qrImage.onload = () => {
@@ -130,52 +129,40 @@ const response = await axios.get(`${API_BASE}/api/generate-qr`, {
                         document.getElementById('qr-loading').classList.add('hidden');
                     };
                     qrImage.onerror = () => {
-                        showError('Failed to load QR code image');
+                        showError('Không tải được ảnh mã QR');
                         document.getElementById('qr-loading').classList.add('hidden');
                     };
-                    qrImage.src = `${API_BASE}${data.qrImage}?t=${Date.now()}`; // Cache buster
-                    
+                    qrImage.src = `${API_BASE}${data.qrImage}?t=${Date.now()}`;
+
                     document.getElementById('session-id').textContent = data.sessionId;
                     document.getElementById('session-info').classList.remove('hidden');
-                    
-                    currentSessionId = data.sessionId;
-                    updateExpiryTimer(data.expiresIn); // <<< MODIFIED: Pass full expiresIn (ms)
-                    
-                    // MODIFIED: Auto-refresh 10 seconds before expiry
-                    if (data.expiresIn > 10000) { // Ensure expiresIn is greater than 10s
-                        autoRefreshTimerId = setTimeout(() => {
-                            console.log("Auto-refreshing QR code due to impending expiry.");
-                            generateQR(); // This will call generateQR again
-                        }, data.expiresIn - 10000); // 10 seconds before expiry
-                    } else if (data.expiresIn > 0) { // If validity is too short (but >0), let it expire
-                         autoRefreshTimerId = setTimeout(() => {
-                            console.log("QR code expired (short validity). Will not auto-refresh this instance.");
-                            // The timer will handle display update to expired.
-                            // currentSessionId will be null, user can click button.
-                        }, data.expiresIn);
-                    }
 
+                    currentSessionId = data.sessionId;
+                    updateExpiryTimer(data.expiresIn);
+
+                    if (data.expiresIn > 10000) {
+                        autoRefreshTimerId = setTimeout(() => {
+                            generateQR();
+                        }, data.expiresIn - 10000);
+                    } else if (data.expiresIn > 0) {
+                        autoRefreshTimerId = setTimeout(() => {}, data.expiresIn);
+                    }
                 } else {
-                    throw new Error(data.message || 'Invalid response from server');
+                    throw new Error(data.message || 'Phản hồi không hợp lệ từ máy chủ');
                 }
-                
             } catch (error) {
                 console.error("QR generation failed:", error);
-                showError(error.response?.data?.message || error.message || 'Failed to generate QR code');
+                showError(error.response?.data?.message || error.message || 'Không tạo được mã QR');
                 document.getElementById('qr-loading').classList.add('hidden');
-                currentSessionId = null; // Ensure session is cleared on error
+                currentSessionId = null;
             } finally {
                 generateBtn.disabled = false;
-                generateBtn.textContent = "Generate QR Code";
+                generateBtn.textContent = "Tạo mã QR";
             }
         }
 
         document.addEventListener("DOMContentLoaded", () => {
             document.getElementById('generate-btn').addEventListener('click', generateQR);
-            
-            
-            // MODIFIED: Removed the generic setInterval for auto-refresh
-            // The new logic within generateQR is more precise.
         });
     </script>
 </body>
