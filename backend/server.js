@@ -56,10 +56,10 @@ const MAX_DISTANCE_METERS = 150;
 const QR_CODE_DIR = path.join(__dirname, '../frontend/public/qrcodes');
 
 // --- Bán kính theo từng mã QR và "vé quét" cho sinh viên ---
-// Vé quét: khi sinh viên quét đúng lúc mã còn hạn, họ có thêm 10 phút để điền form,
+// Vé quét: khi sinh viên quét đúng lúc mã còn hạn, họ có thêm 3 phút để điền form,
 // nên không bị báo hết hạn nữa dù mã trên màn hình đã đổi sang mã mới.
 const ALLOWED_RADIUS = [50, 100, 150];
-const TICKET_TTL_MS = 10 * 60 * 1000;
+const TICKET_TTL_MS = 3 * 60 * 1000;
 const sessionRadius = new Map(); // sessionId -> { radius, at }
 const scanTickets = new Map();   // ticket -> { sessionId, lat, lng, radius, expiresAt }
 
@@ -553,7 +553,7 @@ app.get("/health", (req, res) => {
   });
 });
 
-const ALLOWED_SCHOOLS = ["USSH", "UEH", "UEH-Mekong", "CDDaiViet"];
+const ALLOWED_SCHOOLS = ["USSH", "UEH", "UEH-Mekong", "CDDaiViet", "VLU"];
 
 function validateAttendance(req, res, next) {
   const required = ['name', 'universityRollNo', 'school', 'deviceFingerprint'];
