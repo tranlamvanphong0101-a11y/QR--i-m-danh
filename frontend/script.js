@@ -192,10 +192,17 @@ document.addEventListener("DOMContentLoaded", () => {
         if (SHOW_DASHBOARD) {
             window.location.href = `/dashboard.html?rollNo=${encodeURIComponent(universityRollNo)}`;
         } else {
-            statusElement.innerText = "✅ Điểm danh thành công!";
-            var keepSchool = document.getElementById("school").value;
-            form.reset();
-            document.getElementById("school").value = keepSchool;
+            // Màn hình thành công to, rõ
+            document.getElementById("okName").textContent = name;
+            document.getElementById("okId").textContent = universityRollNo;
+            document.getElementById("okSchool").textContent = school;
+            document.getElementById("okTime").textContent = new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Ho_Chi_Minh" });
+            form.classList.add("hidden");
+            statusElement.innerText = "";
+            var lb = document.getElementById("locBox"); if (lb) lb.classList.add("hidden");
+            document.getElementById("successScreen").classList.remove("hidden");
+            window.scrollTo(0, 0);
+            if (navigator.vibrate) { try { navigator.vibrate(200); } catch (e) {} }
         }
                         } catch (error) {
                             console.error("API error:", error);
