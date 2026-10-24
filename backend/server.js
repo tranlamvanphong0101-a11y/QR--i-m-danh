@@ -553,7 +553,7 @@ app.get("/health", (req, res) => {
   });
 });
 
-const ALLOWED_SCHOOLS = ["USSH", "UEH", "UEH-Mekong", "CDDaiViet", "VLU"];
+const ALLOWED_SCHOOLS = ["USSH", "UEH", "VLU", "UTC", "UEH-Mekong", "CDDaiViet"];
 
 function validateAttendance(req, res, next) {
   const required = ['name', 'universityRollNo', 'school', 'deviceFingerprint'];
