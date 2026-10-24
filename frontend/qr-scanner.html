@@ -38,7 +38,8 @@
         <div id="session-info" class="text-sm text-gray-600 mb-4 hidden">
             Session ID: <span id="session-id" class="font-mono"></span><br>
             Expires in: <span id="expiry-time"></span> </div>
-        
+        <input type="password" id="adminPassword" placeholder="Mật khẩu giảng viên"
+       class="w-full p-3 border border-gray-300 rounded-lg mb-3">
         <button id="generate-btn" class="bg-blue-600 text-white py-2 px-6 rounded hover:bg-blue-700 transition-colors">
             Generate QR Code
         </button>
@@ -116,7 +117,10 @@
         { enableHighAccuracy: true, timeout: 15000 }
     );
 });
-const response = await axios.get(`${API_BASE}/api/generate-qr`, { params: { lat: pos.lat, lng: pos.lng } });
+const response = await axios.get(`${API_BASE}/api/generate-qr`, {
+    params: { lat: pos.lat, lng: pos.lng },
+    headers: { 'x-admin-password': document.getElementById('adminPassword').value }
+});
                 const data = response.data;
                 
                 if (data.status === "success" && data.qrImage && data.sessionId && typeof data.expiresIn === 'number') {
@@ -168,7 +172,7 @@ const response = await axios.get(`${API_BASE}/api/generate-qr`, { params: { lat:
 
         document.addEventListener("DOMContentLoaded", () => {
             document.getElementById('generate-btn').addEventListener('click', generateQR);
-            generateQR(); // Generate initial QR code on page load
+            
             
             // MODIFIED: Removed the generic setInterval for auto-refresh
             // The new logic within generateQR is more precise.
