@@ -37,10 +37,15 @@
         .step-dot.done { background: #10b981; color: #fff; }
         .step-label { font-size: 0.72rem; color: #4b5563; margin-top: 0.25rem; font-weight: 600; }
         .step-label.active { color: #4338ca; }
+        /* Kích thước mã QR: nhỏ trên điện thoại, to trên laptop (theo chiều cao màn hình) */
+        .qr-box { width: 16rem; height: 16rem; }
+        @media (min-width: 1024px) {
+            .qr-box { width: min(30rem, 58vh); height: min(30rem, 58vh); }
+        }
     </style>
 </head>
 <body class="flex items-start justify-center p-4">
-    <div class="card w-full max-w-md rounded-3xl shadow-2xl p-6 my-4">
+    <div class="card w-full max-w-md lg:max-w-6xl rounded-3xl shadow-2xl p-6 lg:p-8 my-4">
 
         <!-- Thanh các bước -->
         <div class="flex items-start justify-between mb-6 px-2">
@@ -60,16 +65,19 @@
             </div>
         </div>
 
+        <!-- Trên laptop: mã QR bên trái, danh sách / xuất file bên phải -->
+        <div class="lg:flex lg:gap-10 lg:items-start">
+
         <!-- BƯỚC 1: TẠO MÃ QR -->
-        <div id="panel-qr" class="text-center">
+        <div id="panel-qr" class="text-center lg:flex-1 lg:min-w-0">
             <h1 id="qr-title" class="text-2xl font-extrabold text-gray-900">Tạo mã QR điểm danh</h1>
             <p id="qr-sub" class="text-gray-600 text-sm mt-1 mb-5">Chọn bán kính rồi bấm tạo mã để chiếu cho lớp</p>
 
             <div id="qr-wrap" class="hidden mb-4 mt-4">
                 <div class="flex justify-center">
                     <div class="qr-frame">
-                        <div class="relative w-64 h-64 rounded-3xl bg-white">
-                            <img id="qr-image" src="" alt="Mã QR" class="w-64 h-64 rounded-3xl bg-white hidden">
+                        <div class="relative qr-box rounded-3xl bg-white">
+                            <img id="qr-image" src="" alt="Mã QR" class="w-full h-full rounded-3xl bg-white hidden">
                             <div id="qr-loading" class="absolute inset-0 flex items-center justify-center hidden">
                                 <div class="spinner rounded-full h-12 w-12 border-t-4 border-b-4 border-indigo-500"></div>
                             </div>
@@ -89,7 +97,7 @@
                 <button id="regen-btn" type="button" class="block mx-auto mt-2 text-xs font-semibold text-indigo-700 underline disabled:opacity-50">🔄 Tạo lại mã (lấy lại vị trí)</button>
             </div>
 
-            <div id="qr-controls">
+            <div id="qr-controls" class="max-w-sm mx-auto">
             <label for="radius" class="block text-left text-sm font-semibold text-gray-800 mb-1">📏 Bán kính điểm danh</label>
             <select id="radius" class="field mb-3">
                 <option value="50">50 mét (phòng nhỏ)</option>
@@ -108,7 +116,7 @@
         </div>
 
         <!-- BƯỚC 2: SINH VIÊN ĐANG ĐIỂM DANH -->
-        <div id="panel-live" class="hidden mt-6 pt-5 border-t-2 border-gray-200">
+        <div id="panel-live" class="hidden mt-6 pt-5 border-t-2 border-gray-200 lg:mt-0 lg:pt-0 lg:border-t-0 lg:border-l-2 lg:pl-10 lg:flex-1 lg:min-w-0">
             <div class="flex items-center justify-between mb-2">
                 <h2 class="text-lg font-extrabold text-gray-900">Sinh viên đã điểm danh</h2>
                 <div class="text-right">
@@ -117,7 +125,7 @@
                 </div>
             </div>
             <p id="live-status" class="text-xs text-gray-500 mb-2">Tự cập nhật mỗi 5 giây (hôm nay)</p>
-            <div id="live-list" class="max-h-48 overflow-y-auto rounded-xl border-2 border-gray-200 divide-y divide-gray-100 text-sm text-gray-800 bg-white"></div>
+            <div id="live-list" class="max-h-48 lg:max-h-[58vh] overflow-y-auto rounded-xl border-2 border-gray-200 divide-y divide-gray-100 text-sm text-gray-800 bg-white"></div>
             <button id="end-btn"
                 class="w-full mt-4 bg-emerald-600 text-white font-bold py-3 rounded-xl shadow hover:bg-emerald-700 active:scale-95 transition">
                 ✅ Kết thúc buổi &amp; xuất file
@@ -125,7 +133,7 @@
         </div>
 
         <!-- BƯỚC 3: XUẤT FILE -->
-        <div id="panel-export" class="hidden mt-6 pt-5 border-t-2 border-gray-200">
+        <div id="panel-export" class="hidden mt-6 pt-5 border-t-2 border-gray-200 lg:mt-0 lg:pt-0 lg:border-t-0 lg:border-l-2 lg:pl-10 lg:flex-1 lg:min-w-0">
             <h2 class="text-lg font-extrabold text-gray-900 mb-1">Xuất file Excel</h2>
             <p class="text-xs text-gray-600 mb-3">Điền kết quả điểm danh vào file danh sách lớp của bạn (đúng mẫu: dòng 2 là tiêu đề, từ dòng 3 là sinh viên).</p>
 
@@ -159,6 +167,8 @@
 
             <button id="deleteAnyBtn" class="w-full mt-4 text-xs text-gray-500 underline">Xóa dữ liệu ngày này mà không xuất file (dữ liệu thử)</button>
             <button id="back-btn" class="w-full mt-3 text-sm text-indigo-700 underline">← Quay lại tạo mã mới</button>
+        </div>
+
         </div>
     </div>
 
@@ -405,7 +415,7 @@
         rows.slice().sort(function (a, b) { return String(b.time || '').localeCompare(String(a.time || '')); })
             .forEach(function (r) {
                 var row = document.createElement('div');
-                row.className = 'flex items-center justify-between px-3 py-2';
+                row.className = 'flex items-center justify-between px-3 py-2 lg:py-3 lg:text-base';
                 var left = document.createElement('div');
                 var nm = document.createElement('div');
                 nm.className = 'font-semibold';
