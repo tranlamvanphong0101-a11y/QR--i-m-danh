@@ -1,131 +1,102 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
     <meta charset="UTF-8">
     <base href="/" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Student Attendance</title>
-    <link rel="icon" href="logo3.png" sizes="16x16" />
+    <title>Điểm danh sinh viên</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: {
-                            50: '#f0f9ff',
-                            100: '#e0f2fe',
-                            200: '#bae6fd',
-                            300: '#7dd3fc',
-                            400: '#38bdf8',
-                            500: '#0ea5e9',
-                            600: '#0284c7',
-                            700: '#0369a1',
-                            800: '#075985',
-                            900: '#0c4a6e',
-                        }
-                    }
-                }
-            }
-        }
-    </script>
     <script defer src="/script.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@3/dist/fp.min.js"></script>
-    
+    <style>
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #6366f1 0%, #a855f7 45%, #ec4899 100%);
+            background-attachment: fixed;
+        }
+        .field {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 0.9rem;
+            background: #f9fafb;
+            transition: all 0.15s;
+        }
+        .field:focus {
+            outline: none;
+            border-color: #6366f1;
+            background: #fff;
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
+        }
+    </style>
 </head>
-<body class="min-h-screen">
-    <div class="flex items-center justify-center p-4">
-        <div class="card w-full max-w-md p-8">
-            <div class="text-center mb-8">
-                <div class="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                    </svg>
-                </div>
-                <h2 class="text-2xl font-bold text-gray-800">Student Attendance</h2>
-                <p class="text-gray-500 mt-1">Please enter your details to mark attendance</p>
+<body class="flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-white/95 backdrop-blur rounded-3xl shadow-2xl p-7 my-6">
+
+        <div class="text-center mb-7">
+            <div class="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center text-3xl shadow-lg">🎓</div>
+            <h2 class="text-2xl font-extrabold text-gray-800">Điểm danh sinh viên</h2>
+            <p class="text-gray-500 text-sm mt-1">Điền thông tin của bạn để xác nhận có mặt</p>
+        </div>
+
+        <form id="attendanceForm" class="space-y-4">
+            <div>
+                <label for="name" class="block text-sm font-semibold text-gray-700 mb-1">👤 Họ và tên</label>
+                <input type="text" id="name" placeholder="Nhập họ và tên" class="field">
             </div>
-            
-            <form id="attendanceForm" class="space-y-5">
+
+            <div>
+                <label for="universityRollNo" class="block text-sm font-semibold text-gray-700 mb-1">🆔 Mã số sinh viên</label>
+                <input type="text" id="universityRollNo" placeholder="Nhập mã số sinh viên" class="field">
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
                 <div>
-                    <label for="name" class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                    <input type="text" id="name" placeholder="Enter your full name" 
-                        class="form-input w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                    <label for="section" class="block text-sm font-semibold text-gray-700 mb-1">📚 Lớp / Nhóm</label>
+                    <input type="text" id="section" placeholder="Ví dụ: A" class="field">
                 </div>
-                
                 <div>
-                    <label for="universityRollNo" class="block text-sm font-medium text-gray-700 mb-1">University Roll No</label>
-                    <input type="text" id="universityRollNo" placeholder="Enter your university roll number" 
-                        class="form-input w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                    <label for="classRollNo" class="block text-sm font-semibold text-gray-700 mb-1">🔢 Số thứ tự</label>
+                    <input type="text" id="classRollNo" placeholder="Ví dụ: 12" class="field">
                 </div>
-                
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label for="section" class="block text-sm font-medium text-gray-700 mb-1">Section</label>
-                        <input type="text" id="section" placeholder="Section" 
-                            class="form-input w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
-                    </div>
-                    <div>
-                        <label for="classRollNo" class="block text-sm font-medium text-gray-700 mb-1">Class Roll No</label>
-                        <input type="text" id="classRollNo" placeholder="Class roll number" 
-                            class="form-input w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
-                    </div>
-                </div>
-                
-                <button type="submit" 
-                    class="w-full bg-primary-600 text-white p-3 rounded-lg hover:bg-primary-700 transition-colors font-medium flex items-center justify-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                    </svg>
-                    Submit Attendance
-                </button>
-                <!--<a href="/frontend/dashboard.html" class="w-full mt-4 inline-flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                    </svg>
-                    Go to Dashboard
-                </a>-->
-            </form>
-            <!-- Add this below your current <p id="status">... -->
-<p id="status" class="text-center mt-6 text-sm"></p>
+            </div>
 
-<!-- Dashboard Button Section -->
-<div class="mt-8"> 
-    <label for="rollInput" class="block text-sm font-medium text-gray-700 mb-1">Check Your Attendance</label>
-    <div class="flex gap-2">
-        <input type="text" id="rollInput" placeholder="Enter University Roll No"
-            class="form-input flex-grow p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
-        <!--<button onclick="checkAttendanceAndLoadDashboard()"
-            class="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors font-medium">
-            View Dashboard
-        </button>-->
-        <button id="view-dashboard-btn" class="btn btn-primary">
-            View Dashboard
-        </button>
-    </div>
-</div>
+            <button type="submit"
+                class="w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white font-bold py-3.5 rounded-xl shadow-lg hover:opacity-90 active:scale-95 transition flex items-center justify-center gap-2">
+                ✅ Xác nhận điểm danh
+            </button>
+        </form>
 
-<!-- Access Message -->
-<div id="accessMessage" class="text-sm text-center mt-4 text-red-600 font-medium"></div>
+        <p id="status" class="text-center mt-5 text-sm font-medium"></p>
 
-<!-- Dashboard View -->
-<div id="dashboard" class="card mt-6 p-6 hidden">
-    <h3 class="text-lg font-semibold text-gray-800 mb-4 text-center">Attendance Dashboard</h3>
-    <div class="overflow-x-auto">
-        <table class="min-w-full table-auto border border-gray-300 text-sm text-left">
-            <thead class="bg-primary-100 text-gray-700">
-                <tr>
-                    <th class="px-4 py-2 border">Date</th>
-                    <th class="px-4 py-2 border">Time</th>
-                    <th class="px-4 py-2 border">Device</th>
-                    <th class="px-4 py-2 border">Location</th>
-                </tr>
-            </thead>
-            <tbody id="attendanceTable" class="bg-white"></tbody>
-        </table>
-    </div>
-</div>
-              
+        <p class="text-center text-xs text-gray-400 mt-4">📍 Hãy cho phép vị trí khi trình duyệt hỏi</p>
+
+        <!-- Khung xem điểm danh cá nhân: đang ẩn, xóa style="display:none" để bật lại khi nâng cấp -->
+        <div class="mt-8" style="display:none">
+            <label for="rollInput" class="block text-sm font-semibold text-gray-700 mb-1">Kiểm tra điểm danh của bạn</label>
+            <div class="flex gap-2">
+                <input type="text" id="rollInput" placeholder="Nhập mã số sinh viên" class="field flex-grow">
+                <button id="view-dashboard-btn" class="bg-indigo-500 text-white px-4 rounded-xl font-semibold">Xem</button>
+            </div>
+        </div>
+
+        <div id="accessMessage" class="text-sm text-center mt-4 text-red-600 font-medium"></div>
+
+        <div id="dashboard" class="mt-6 hidden">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4 text-center">Lịch sử điểm danh</h3>
+            <div class="overflow-x-auto">
+                <table class="min-w-full table-auto border border-gray-300 text-sm text-left">
+                    <thead class="bg-indigo-100 text-gray-700">
+                        <tr>
+                            <th class="px-4 py-2 border">Ngày</th>
+                            <th class="px-4 py-2 border">Giờ</th>
+                            <th class="px-4 py-2 border">Thiết bị</th>
+                            <th class="px-4 py-2 border">Vị trí</th>
+                        </tr>
+                    </thead>
+                    <tbody id="attendanceTable" class="bg-white"></tbody>
+                </table>
+            </div>
         </div>
     </div>
 </body>
