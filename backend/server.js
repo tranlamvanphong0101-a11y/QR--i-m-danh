@@ -157,7 +157,17 @@ const qrLimiter = rateLimit({
   legacyHeaders: false
 });
 
-
+// Chỉ giảng viên (có mật khẩu) mới xem được dữ liệu điểm danh và sinh viên
+function requireAdmin(req, res, next) {
+  const adminPass = req.headers['x-admin-password'];
+  if (!process.env.ADMIN_PASSWORD || adminPass !== process.env.ADMIN_PASSWORD) {
+    return res.status(401).json({ status: "error", message: "Sai mật khẩu giảng viên" });
+  }
+  next();
+}
+app.use('/api/attendance', requireAdmin);
+app.use('/api/students', requireAdmin);
+app.use('/api/export', requireAdmin);
 // Routes
 app.use("/api/students", studentProfileRoutes);
 app.use("/api/attendance", attendanceRoutes);
