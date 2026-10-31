@@ -157,6 +157,7 @@ function checkStudentTicket(req) {
 // --- Cảnh báo vị trí nghi giả (chỉ để giảng viên tham khảo, không chặn) ---
 const locRecords = new Map(); // ngày -> [{ roll, lat, lng, acc }]
 const locFlags = new Map();   // ngày -> Map(MSSV -> lý do)
+const privFlags = new Map();  // ngày -> Set(MSSV nghi dùng tab ẩn danh trên Chrome)
 function setLocFlag(date, roll, text) {
   if (!locFlags.has(date)) locFlags.set(date, new Map());
   const m = locFlags.get(date);
@@ -188,6 +189,7 @@ setInterval(() => {
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
   for (const k of locRecords.keys()) if (k !== today) locRecords.delete(k);
   for (const k of locFlags.keys()) if (k !== today) locFlags.delete(k);
+  for (const k of privFlags.keys()) if (k !== today) privFlags.delete(k);
 }, 60 * 60 * 1000).unref();
 
 setInterval(() => {
@@ -789,6 +791,18 @@ function validateAttendance(req, res, next) {
 }
 
 app.post("/mark-attendance", validateAttendance, async (req, res) => {
+  // Giữ chỗ vé quét ngay lập tức (trước mọi thao tác chờ cơ sở dữ liệu),
+  // để một lần quét không thể gửi nhiều yêu cầu cùng lúc cho nhiều MSSV.
+  const ticketCheck = checkStudentTicket(req);
+  if (ticketCheck.error) {
+    return res.status(400).json({ status: "error", message: ticketCheck.error });
+  }
+  const sessionInfo = ticketCheck.info;
+  if (sessionInfo.inUse) {
+    return res.status(409).json({ status: "error", message: "Đang xử lý lần điểm danh trước, vui lòng đợi vài giây" });
+  }
+  sessionInfo.inUse = true;
+  let succeeded = false;
   try {
     const { universityRollNo, deviceFingerprint, location } = req.body;
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
@@ -824,11 +838,6 @@ app.post("/mark-attendance", validateAttendance, async (req, res) => {
       });
     }
 
-    const ticketCheck = checkStudentTicket(req);
-    if (ticketCheck.error) {
-      return res.status(400).json({ status: "error", message: ticketCheck.error });
-    }
-    const sessionInfo = ticketCheck.info;
     const distance = getDistanceFromLatLngInMeters(
       location.lat, location.lng,
       sessionInfo.lat, sessionInfo.lng
@@ -867,9 +876,14 @@ app.post("/mark-attendance", validateAttendance, async (req, res) => {
     try {
       const samples = Array.isArray(req.body.samples) ? req.body.samples.slice(0, 10) : [];
       analyzeLocation(today, universityRollNo, { lat: location.lat, lng: location.lng, acc: location.acc }, samples);
+      if (req.body.env && req.body.env.priv === 'suspect') {
+        if (!privFlags.has(today)) privFlags.set(today, new Set());
+        privFlags.get(today).add(universityRollNo);
+      }
     } catch (e) { console.error('analyzeLocation error:', e.message); }
 
     // Vé quét chỉ dùng một lần; ghi nhớ thiết bị này đã điểm danh cho MSSV nào hôm nay
+    succeeded = true;
     scanTickets.delete(req.body.ticket);
     res.clearCookie(COOKIE_TICKET, { path: '/' });
     res.cookie(COOKIE_DEVICE, signValue(today + '|' + universityRollNo), cookieOpts(req, 24 * 60 * 60 * 1000));
@@ -882,6 +896,8 @@ app.post("/mark-attendance", validateAttendance, async (req, res) => {
   } catch (error) {
     console.error("Attendance error:", error);
     res.status(500).json({ status: "error", message: error.message });
+  } finally {
+    if (!succeeded) sessionInfo.inUse = false;
   }
 });
 app.get('/api/students/profile', async (req, res) => {
@@ -1195,7 +1211,8 @@ app.get('/api/export/attendance', async (req, res) => {
           time: r.time,
           flag: !!partners,
           flagWith: partners ? Array.from(partners) : [],
-          locFlag: (locFlags.get(date) && locFlags.get(date).get(r.universityRollNo)) || ''
+          locFlag: (locFlags.get(date) && locFlags.get(date).get(r.universityRollNo)) || '',
+          privFlag: !!(privFlags.get(date) && privFlags.get(date).has(r.universityRollNo))
         };
       })
     });
@@ -1224,6 +1241,8 @@ app.delete('/api/export/attendance', async (req, res) => {
     }
     const rollsToDelete = await Attendance.find(filter).distinct('universityRollNo');
     const result = await Attendance.deleteMany(filter);
+    const dayPriv = privFlags.get(date);
+    if (dayPriv) rollsToDelete.forEach(r => dayPriv.delete(r));
     const dayLoc = locFlags.get(date);
     if (dayLoc) rollsToDelete.forEach(r => dayLoc.delete(r));
     const dayRecs = locRecords.get(date);
