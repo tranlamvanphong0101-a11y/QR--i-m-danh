@@ -9,7 +9,6 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="/script.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@3/dist/fp.min.js"></script>
     <style>
         body {
             min-height: 100vh;
@@ -227,7 +226,11 @@
             sc.onload = function () {
                 if (typeof window.detectIncognito !== 'function') return next();
                 window.detectIncognito().then(function (res) {
-                    done(res && res.isPrivate ? 'private' : 'normal');
+                    if (!res || !res.isPrivate) return done('normal');
+                    // Safari: cách phát hiện chắc chắn -> chặn. Chrome: cách phát hiện dựa trên đo thời gian,
+                    // có thể nhầm -> chỉ gắn cảnh báo cho giảng viên, không chặn sinh viên.
+                    var ios = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+                    done((ios || res.browserName === 'Safari') ? 'private' : 'suspect');
                 }).catch(function () { done('unknown'); });
             };
             sc.onerror = next;

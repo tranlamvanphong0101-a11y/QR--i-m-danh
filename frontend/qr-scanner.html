@@ -12,7 +12,7 @@
     <link rel="icon" type="image/png" href="/icon-192.png">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.7.9/dist/axios.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
     <style>
         body {
@@ -473,7 +473,7 @@
             rows.forEach(function (r) { if (!knownIds.has(String(r.universityRollNo || ''))) newOnes.push(r); });
         }
         knownIds = new Set(ids);
-        var nFlag = rows.filter(function (r) { return r.flag || r.locFlag; }).length;
+        var nFlag = rows.filter(function (r) { return r.flag || r.locFlag || r.privFlag; }).length;
         var warn = $('live-warn');
         if (nFlag) { warn.textContent = '⚠ ' + nFlag + ' bạn có dấu hiệu bất thường (xem nhãn cảnh báo trong danh sách)'; warn.classList.remove('hidden'); }
         else { warn.classList.add('hidden'); }
@@ -513,6 +513,12 @@
                     bd.className = 'suspect-badge';
                     bd.textContent = '⚠ Nghi trùng thiết bị' + (r.flagWith && r.flagWith.length ? ' với ' + r.flagWith.join(', ') : '');
                     left.appendChild(bd);
+                }
+                if (r.privFlag) {
+                    var pb = document.createElement('div');
+                    pb.className = 'suspect-badge';
+                    pb.textContent = '🕶 Nghi dùng tab ẩn danh';
+                    left.appendChild(pb);
                 }
                 if (r.locFlag) {
                     var lb = document.createElement('div');
