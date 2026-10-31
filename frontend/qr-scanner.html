@@ -100,7 +100,7 @@
 
             <div id="session-info" class="text-sm text-gray-700 mb-4 hidden bg-indigo-50 rounded-xl p-3">
                 <span id="session-id" class="hidden"></span>
-                <span class="font-semibold text-indigo-700">⏱ Còn hiệu lực: <span id="expiry-time"></span></span>
+                <span class="font-semibold text-indigo-700">🔄 Mã tự đổi sau: <span id="expiry-time"></span></span>
                 <button id="regen-btn" type="button" class="block mx-auto mt-2 text-xs font-semibold text-indigo-700 underline disabled:opacity-50">🔄 Tạo lại mã (lấy lại vị trí)</button>
             </div>
 
@@ -193,7 +193,7 @@
         </div>
         <div class="mt-5 flex flex-wrap items-center justify-center gap-x-10 gap-y-2">
             <div class="text-center"><span id="present-count" class="text-5xl md:text-6xl font-extrabold">0</span><span class="text-xl md:text-2xl ml-2">người đã điểm danh</span></div>
-            <div class="text-lg md:text-2xl font-semibold">⏱ Còn hiệu lực: <span id="present-expiry"></span></div>
+            <div class="text-lg md:text-2xl font-semibold">🔄 Mã đổi sau: <span id="present-expiry"></span></div>
         </div>
         <p class="absolute bottom-3 right-4 text-xs md:text-sm text-white/70 select-none">© 2026 TH · @tbmt</p>
         <p id="present-last" class="mt-3 text-lg md:text-2xl font-bold text-center min-h-8"></p>
@@ -241,6 +241,10 @@
     }
 
     // ===== BƯỚC 1: TẠO MÃ QR =====
+    // Mã QR tự đổi mỗi 15 giây; máy chủ chỉ nhận mã trong 25 giây kể từ lúc tạo
+    var ROTATE_MS = 15000;
+    var nextRotateAt = 0;
+
     function updateExpiryTimer(expiresInMs) {
         clearInterval(expiryInterval);
         var remaining = expiresInMs;
@@ -256,9 +260,8 @@
                 currentSessionId = null;
                 return;
             }
-            var m = Math.floor(remaining / 60000);
-            var s = Math.floor((remaining % 60000) / 1000);
-            $('expiry-time').textContent = m + 'p ' + s + 's';
+            var secs = Math.max(0, Math.ceil((nextRotateAt - Date.now()) / 1000));
+            $('expiry-time').textContent = secs + ' giây';
         }
         show();
         expiryInterval = setInterval(function () { remaining -= 1000; show(); }, 1000);
@@ -422,11 +425,10 @@
                 $('session-id').textContent = data.sessionId;
                 $('session-info').classList.remove('hidden');
                 currentSessionId = data.sessionId;
+                var rotateIn = Math.max(5000, Math.min(ROTATE_MS, data.expiresIn - 10000));
+                nextRotateAt = Date.now() + rotateIn;
                 updateExpiryTimer(data.expiresIn);
-
-                if (data.expiresIn > 10000) {
-                    autoRefreshTimerId = setTimeout(function () { generateQR(true); }, data.expiresIn - 10000);
-                }
+                autoRefreshTimerId = setTimeout(function () { generateQR(true); }, rotateIn);
 
                 // Sang bước 2
                 $('panel-export').classList.add('hidden');
@@ -444,7 +446,8 @@
             if (isAuto && currentSessionId && autoFailCount < 5) {
                 autoFailCount++;
                 $('qr-loading').classList.add('hidden');
-                autoRefreshTimerId = setTimeout(function () { generateQR(true); }, 4000);
+                nextRotateAt = Date.now() + 3000;
+                autoRefreshTimerId = setTimeout(function () { generateQR(true); }, 3000);
             } else {
                 showError((error.response && error.response.data && error.response.data.message) || error.message || 'Không tạo được mã QR');
                 $('qr-loading').classList.add('hidden');
@@ -470,9 +473,9 @@
             rows.forEach(function (r) { if (!knownIds.has(String(r.universityRollNo || ''))) newOnes.push(r); });
         }
         knownIds = new Set(ids);
-        var nFlag = rows.filter(function (r) { return r.flag; }).length;
+        var nFlag = rows.filter(function (r) { return r.flag || r.locFlag; }).length;
         var warn = $('live-warn');
-        if (nFlag) { warn.textContent = '⚠ ' + nFlag + ' bạn nghi trùng thiết bị (xem dấu cảnh báo trong danh sách)'; warn.classList.remove('hidden'); }
+        if (nFlag) { warn.textContent = '⚠ ' + nFlag + ' bạn có dấu hiệu bất thường (xem nhãn cảnh báo trong danh sách)'; warn.classList.remove('hidden'); }
         else { warn.classList.add('hidden'); }
         if (newOnes.length || rows.length > prevCount && prevCount > 0) {
             var c = $('live-count'); c.classList.remove('bump'); void c.offsetWidth; c.classList.add('bump');
@@ -510,6 +513,13 @@
                     bd.className = 'suspect-badge';
                     bd.textContent = '⚠ Nghi trùng thiết bị' + (r.flagWith && r.flagWith.length ? ' với ' + r.flagWith.join(', ') : '');
                     left.appendChild(bd);
+                }
+                if (r.locFlag) {
+                    var lb = document.createElement('div');
+                    lb.className = 'suspect-badge';
+                    lb.style.background = '#fee2e2'; lb.style.color = '#991b1b'; lb.style.borderColor = '#fca5a5';
+                    lb.textContent = '📍 Vị trí nghi giả: ' + r.locFlag;
+                    left.appendChild(lb);
                 }
                 var tm = document.createElement('div');
                 tm.className = 'text-xs text-gray-600 font-mono';

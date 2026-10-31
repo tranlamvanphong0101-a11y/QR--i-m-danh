@@ -54,10 +54,8 @@
         </div>
         <div id="browserBlock" class="hidden mb-5 rounded-2xl p-4 text-sm bg-rose-50 border border-rose-200 text-rose-800 text-center">
             <div class="text-3xl mb-2">🚫</div>
-            <div class="font-bold text-base mb-1">Hãy mở bằng <span id="bbHint"></span></div>
-            <div class="mb-3">Để điểm danh, dùng <b>Safari hoặc Chrome</b> trên iPhone, hoặc <b>Chrome</b> trên Android.</div>
-            <div id="bbSteps" class="mb-3"></div>
-            <button id="bbCopy" type="button" class="w-full bg-indigo-600 text-white font-semibold py-2.5 rounded-xl">📋 Sao chép liên kết</button>
+            <div id="bbTitle" class="font-bold text-base mb-2"></div>
+            <div id="bbText" class="leading-relaxed"></div>
         </div>
         <form id="attendanceForm" class="space-y-4">
             <div>
@@ -140,45 +138,112 @@
         </div>
     </div>
     <script>
-    // Chỉ cho dùng 1 trình duyệt chuẩn trên mỗi điện thoại: iPhone = Safari, Android = Chrome
+    // ===== Kiểm tra trình duyệt / thiết bị / tab ẩn danh trước khi cho điểm danh =====
     function checkBrowser(ua) {
       var isIOS = /iPhone|iPad|iPod/i.test(ua);
       var isAndroid = /Android/i.test(ua);
       if (/Zalo|FBAN|FBAV|FB_IAB|Messenger|Instagram|Line\/|MicroMessenger|TikTok/i.test(ua)) {
-        return { ok: false, hint: isIOS ? 'Safari hoặc Chrome' : 'Chrome' };
+        return { ok: false, kind: 'browser', hint: isIOS ? 'Safari hoặc Chrome' : 'Chrome' };
       }
       if (isIOS) {
-        if (/FxiOS|EdgiOS|OPiOS|OPT\/|GSA\/|DuckDuckGo|coc_coc|YaBrowser|UCBrowser/i.test(ua) || !/Safari\//.test(ua)) return { ok: false, hint: 'Safari hoặc Chrome' };
+        if (/FxiOS|EdgiOS|OPiOS|OPT\/|GSA\/|DuckDuckGo|coc_coc|YaBrowser|UCBrowser/i.test(ua) || !/Safari\//.test(ua)) return { ok: false, kind: 'browser', hint: 'Safari hoặc Chrome' };
         return { ok: true };
       }
       if (isAndroid) {
-        if (!/Chrome\//.test(ua) || /EdgA|OPR\/|OPT\/|SamsungBrowser|Firefox|UCBrowser|CocCoc|coc_coc|YaBrowser|DuckDuckGo|; wv\)|Version\/\d/i.test(ua)) return { ok: false, hint: 'Chrome' };
+        if (!/Chrome\//.test(ua) || /EdgA|OPR\/|OPT\/|SamsungBrowser|Firefox|UCBrowser|CocCoc|coc_coc|YaBrowser|DuckDuckGo|; wv\)|Version\/\d/i.test(ua)) return { ok: false, kind: 'browser', hint: 'Chrome' };
         return { ok: true };
       }
-      // Máy tính: chỉ Chrome hoặc Safari
-      var chromeLike = /Chrome\//.test(ua) && !/Edg\/|OPR\/|Firefox|Vivaldi|Brave/i.test(ua);
-      var safari = /Safari\//.test(ua) && /Version\//.test(ua) && !/Chrome\//.test(ua);
-      return (chromeLike || safari) ? { ok: true } : { ok: false, hint: 'Chrome hoặc Safari' };
+      // Máy tính / máy tính bảng chạy giao diện máy tính: không cho điểm danh
+      return { ok: false, kind: 'desktop', hint: 'điện thoại' };
     }
-    
-    (function () {
-        var r = checkBrowser(navigator.userAgent);
-        if (r.ok) return;
+
+    // Phát hiện máy tính giả làm điện thoại (công cụ lập trình) hoặc phần mềm giả lập Android
+    function checkDeviceConsistency(ua, platform, gpu, touch) {
+      var isIOS = /iPhone|iPad|iPod/i.test(ua);
+      var isAndroid = /Android/i.test(ua);
+      platform = String(platform || '');
+      gpu = String(gpu || '');
+      if (/SwiftShader|llvmpipe|VirtualBox|VMware|Android Emulator|Parallels|Microsoft Basic Render/i.test(gpu)) return false;
+      if (isIOS && platform && !/iPhone|iPad|iPod/i.test(platform)) return false;
+      if (isAndroid && (/^(Win|Mac)/i.test(platform) || /x86_64|i686/i.test(platform))) return false;
+      if ((isIOS || isAndroid) && /NVIDIA|GeForce|Radeon|Direct3D|Intel\(R\)|Intel Iris|Intel HD|Intel UHD/i.test(gpu)) return false;
+      if ((isIOS || isAndroid) && touch === 0) return false;
+      return true;
+    }
+
+    function showBlock(title, text) {
         window.__browserBlocked = true;
-        var isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
         document.getElementById('attendanceForm').classList.add('hidden');
         document.getElementById('locBox').classList.add('hidden');
-        var b = document.getElementById('browserBlock');
-        document.getElementById('bbHint').textContent = r.hint;
-        document.getElementById('bbSteps').textContent = isIOS
-            ? 'Bấm "Sao chép liên kết" bên dưới, mở ứng dụng Safari hoặc Chrome, dán vào thanh địa chỉ rồi vào lại.'
-            : 'Bấm "Sao chép liên kết" bên dưới, mở ứng dụng Chrome, dán vào thanh địa chỉ rồi vào lại.';
-        b.classList.remove('hidden');
-        document.getElementById('bbCopy').addEventListener('click', function () {
-            if (navigator.clipboard) navigator.clipboard.writeText(location.href);
-            this.textContent = '✅ Đã sao chép';
-        });
+        document.getElementById('bbTitle').textContent = title;
+        document.getElementById('bbText').textContent = text;
+        document.getElementById('browserBlock').classList.remove('hidden');
+    }
+
+    (function () {
+        var ua = navigator.userAgent;
+        var isIOS = /iPhone|iPad|iPod/i.test(ua);
+        var r = checkBrowser(ua);
+        if (!r.ok) {
+            if (r.kind === 'desktop') {
+                showBlock('Hãy điểm danh bằng điện thoại',
+                    'Máy tính không dùng để điểm danh được. Hãy dùng camera điện thoại quét mã trên màn hình.');
+            } else if (isIOS) {
+                showBlock('Hãy mở bằng Safari hoặc Chrome',
+                    'Mở ứng dụng Camera của iPhone và quét lại mã đang chiếu trên màn hình (mã sẽ tự mở bằng Safari). Không dùng ứng dụng quét mã của Zalo/Facebook.');
+            } else {
+                showBlock('Hãy mở bằng Chrome',
+                    'Mở Chrome (hoặc Camera / Google Lens) và quét lại mã đang chiếu trên màn hình. Nếu điện thoại tự mở trình duyệt khác, hãy đặt Chrome làm trình duyệt mặc định.');
+            }
+            return;
+        }
+        var gpu = '';
+        try {
+            var c = document.createElement('canvas');
+            var gl = c.getContext('webgl') || c.getContext('experimental-webgl');
+            var ext = gl && gl.getExtension('WEBGL_debug_renderer_info');
+            if (ext) gpu = gl.getParameter(ext.UNMASKED_VENDOR_WEBGL) + '|' + gl.getParameter(ext.UNMASKED_RENDERER_WEBGL);
+        } catch (e) {}
+        var touch = typeof navigator.maxTouchPoints === 'number' ? navigator.maxTouchPoints : undefined;
+        if (!checkDeviceConsistency(ua, navigator.platform, gpu, touch)) {
+            showBlock('Thiết bị không hợp lệ',
+                'Hãy dùng điện thoại thật với trình duyệt bình thường để quét mã. Máy tính giả làm điện thoại hoặc phần mềm giả lập không được dùng để điểm danh.');
+            return;
+        }
     })();
+
+    // Kiểm tra tab ẩn danh / riêng tư bằng thư viện mã nguồn mở detectIncognito (MIT)
+    window.__privateCheck = new Promise(function (resolve) {
+        var urls = [
+            'https://cdn.jsdelivr.net/npm/detectincognitojs@1.9.0/dist/es5/detectIncognito.min.js',
+            'https://cdn.jsdelivr.net/gh/Joe12387/detectIncognito@main/dist/es5/detectIncognito.min.js'
+        ];
+        var i = 0, finished = false;
+        function done(v) { if (!finished) { finished = true; resolve(v); } }
+        function next() {
+            if (i >= urls.length) return done('unknown');
+            var sc = document.createElement('script');
+            sc.src = urls[i++];
+            sc.onload = function () {
+                if (typeof window.detectIncognito !== 'function') return next();
+                window.detectIncognito().then(function (res) {
+                    done(res && res.isPrivate ? 'private' : 'normal');
+                }).catch(function () { done('unknown'); });
+            };
+            sc.onerror = next;
+            document.head.appendChild(sc);
+        }
+        next();
+        setTimeout(function () { done('unknown'); }, 6000);
+    });
+    window.__privateCheck.then(function (v) {
+        if (v !== 'private' || window.__browserBlocked) return;
+        var isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+        showBlock('Hãy tắt chế độ ẩn danh',
+            isIOS
+                ? 'Bạn đang mở tab Riêng tư. Trong Safari, bấm nút tab → chuyển sang nhóm tab thường (không phải Riêng tư), rồi dùng Camera quét lại mã.'
+                : 'Bạn đang mở tab ẩn danh. Hãy đóng tab ẩn danh, mở Chrome bình thường rồi quét lại mã.');
+    });
     </script>
         <script>
     (function () {
