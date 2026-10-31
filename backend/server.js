@@ -8,6 +8,13 @@ const rateLimit = require('express-rate-limit');
 const fs = require('fs');
 const crypto = require('crypto');
 const helmet = require("helmet");
+
+// Khoá bí mật cho mã QR: nếu chưa đặt QR_SECRET_KEY trên Render thì tự tạo khoá ngẫu nhiên mỗi lần máy chủ khởi động,
+// tránh dùng khoá mặc định mà ai đọc mã nguồn công khai cũng biết.
+if (!process.env.QR_SECRET_KEY || process.env.QR_SECRET_KEY === 'default-secret-key') {
+  process.env.QR_SECRET_KEY = crypto.randomBytes(32).toString('hex');
+  console.warn('QR_SECRET_KEY chưa được đặt: dùng khoá ngẫu nhiên tạm thời (nên đặt QR_SECRET_KEY trên Render).');
+}
 //const sha256 = require('./sha256');
 
 // Import models and routes
@@ -59,9 +66,129 @@ const QR_CODE_DIR = path.join(__dirname, '../frontend/public/qrcodes');
 // Vé quét: khi sinh viên quét đúng lúc mã còn hạn, họ có thêm 3 phút để điền form,
 // nên không bị báo hết hạn nữa dù mã trên màn hình đã đổi sang mã mới.
 const ALLOWED_RADIUS = [50, 100, 150];
+
+// --- Cảnh báo "nghi trùng thiết bị": cùng cấu hình máy + cùng IP, khác MSSV, điểm danh gần nhau ---
+// Chỉ để giảng viên tham khảo, không chặn ai. Lưu trong bộ nhớ nên khởi động lại máy chủ sẽ mất.
+const SUSPECT_WINDOW_MS = 15 * 60 * 1000;
+const deviceGroups = new Map(); // "ngày|ip|nhóm" -> [{ roll, ts }]
+const suspectFlags = new Map(); // ngày -> Map(MSSV -> Set(MSSV nghi trùng))
+
+function addSuspect(date, a, b) {
+  if (!suspectFlags.has(date)) suspectFlags.set(date, new Map());
+  const m = suspectFlags.get(date);
+  if (!m.has(a)) m.set(a, new Set());
+  m.get(a).add(b);
+}
+
+function registerDevice(date, ip, group, roll) {
+  if (typeof group !== 'string' || !group || group.length > 64) return;
+  const key = `${date}|${ip}|${group}`;
+  const now = Date.now();
+  const list = deviceGroups.get(key) || [];
+  for (const e of list) {
+    if (e.roll !== roll && now - e.ts <= SUSPECT_WINDOW_MS) {
+      addSuspect(date, roll, e.roll);
+      addSuspect(date, e.roll, roll);
+    }
+  }
+  list.push({ roll, ts: now });
+  deviceGroups.set(key, list);
+}
+
+setInterval(() => {
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+  for (const [k, list] of deviceGroups) {
+    const kept = list.filter(e => e.ts > cutoff);
+    if (kept.length) deviceGroups.set(k, kept); else deviceGroups.delete(k);
+  }
+}, 60 * 60 * 1000).unref();
 const TICKET_TTL_MS = 3 * 60 * 1000;
 const sessionRadius = new Map(); // sessionId -> { radius, at }
 const scanTickets = new Map();   // ticket -> { sessionId, lat, lng, radius, expiresAt }
+
+// --- Bảo mật điểm danh ---
+// Mã QR chỉ dùng được trong 25 giây kể từ lúc tạo (màn hình đổi mã mỗi 15 giây),
+// nên ảnh chụp mã gửi qua Zalo/Messenger gần như không kịp dùng.
+const SCAN_WINDOW_MS = 25 * 1000;
+const COOKIE_TICKET = 'att_ticket'; // gắn "vé quét" vào đúng trình duyệt đã quét mã
+const COOKIE_DEVICE = 'att_dev';    // nhớ thiết bị đã điểm danh cho MSSV nào trong ngày
+const COOKIE_SECRET = process.env.QR_SECRET_KEY || 'default-secret-key';
+
+function parseCookies(req) {
+  const out = {};
+  String(req.headers.cookie || '').split(';').forEach(part => {
+    const i = part.indexOf('=');
+    if (i > 0) {
+      const k = part.slice(0, i).trim();
+      try { out[k] = decodeURIComponent(part.slice(i + 1).trim()); } catch (e) { out[k] = part.slice(i + 1).trim(); }
+    }
+  });
+  return out;
+}
+function signValue(v) {
+  return v + '.' + crypto.createHmac('sha256', COOKIE_SECRET).update(v).digest('hex').slice(0, 32);
+}
+function readSigned(signed) {
+  if (typeof signed !== 'string') return null;
+  const i = signed.lastIndexOf('.');
+  if (i < 0) return null;
+  const v = signed.slice(0, i);
+  return signValue(v) === signed ? v : null;
+}
+function cookieOpts(req, maxAge) {
+  return { httpOnly: true, secure: !!req.secure, sameSite: 'lax', path: '/', maxAge };
+}
+
+// Kiểm tra vé quét của sinh viên: phải đúng phiên, còn hạn, và phải là trình duyệt đã quét mã
+function checkStudentTicket(req) {
+  const body = req.body || {};
+  const sessionId = body.sessionId, ticket = body.ticket;
+  if (!sessionId || !ticket) return { error: 'Hãy dùng camera quét trực tiếp mã QR đang chiếu trên màn hình' };
+  const t = scanTickets.get(ticket);
+  if (!t || t.sessionId !== sessionId || t.expiresAt < Date.now()) {
+    return { error: 'Mã QR đã hết hạn, hãy quét lại mã đang chiếu trên màn hình' };
+  }
+  if (parseCookies(req)[COOKIE_TICKET] !== ticket) {
+    return { error: 'Liên kết này không phải do điện thoại của bạn quét. Hãy dùng camera quét trực tiếp mã trên màn hình.' };
+  }
+  return { info: t };
+}
+
+// --- Cảnh báo vị trí nghi giả (chỉ để giảng viên tham khảo, không chặn) ---
+const locRecords = new Map(); // ngày -> [{ roll, lat, lng, acc }]
+const locFlags = new Map();   // ngày -> Map(MSSV -> lý do)
+function setLocFlag(date, roll, text) {
+  if (!locFlags.has(date)) locFlags.set(date, new Map());
+  const m = locFlags.get(date);
+  if (!m.has(roll)) m.set(roll, text);
+}
+function analyzeLocation(date, roll, loc, samples) {
+  const acc = Number(loc && loc.acc);
+  if (loc && loc.acc !== undefined && acc === 0) {
+    setLocFlag(date, roll, 'Độ chính xác vị trí = 0 m (thường do ứng dụng giả vị trí)');
+  }
+  if (Array.isArray(samples) && samples.length >= 3) {
+    const s0 = samples[0];
+    const same = samples.every(s => s && s.lat === s0.lat && s.lng === s0.lng && s.acc === s0.acc);
+    if (same && Number(s0.acc) <= 10) setLocFlag(date, roll, 'Vị trí đứng yên tuyệt đối với độ chính xác cao bất thường');
+  }
+  const list = locRecords.get(date) || [];
+  if (isFinite(acc) && acc <= 15) {
+    for (const r of list) {
+      if (r.roll !== roll && r.acc <= 15 && Math.abs(r.lat - loc.lat) < 1e-6 && Math.abs(r.lng - loc.lng) < 1e-6) {
+        setLocFlag(date, roll, 'Toạ độ trùng y hệt với ' + r.roll);
+        setLocFlag(date, r.roll, 'Toạ độ trùng y hệt với ' + roll);
+      }
+    }
+  }
+  list.push({ roll, lat: loc.lat, lng: loc.lng, acc: isFinite(acc) ? acc : 9999 });
+  locRecords.set(date, list);
+}
+setInterval(() => {
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+  for (const k of locRecords.keys()) if (k !== today) locRecords.delete(k);
+  for (const k of locFlags.keys()) if (k !== today) locFlags.delete(k);
+}, 60 * 60 * 1000).unref();
 
 setInterval(() => {
   const now = Date.now();
@@ -174,7 +301,7 @@ catch (err) {
 // Rate limiting for QR generation
 const qrLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 5,
+  max: 20,
   handler: (req, res) => {
     console.log(`Rate limit exceeded for IP: ${req.ip}`);
     res.status(429).json({
@@ -187,11 +314,40 @@ const qrLimiter = rateLimit({
 });
 
 // Chỉ giảng viên (có mật khẩu) mới xem được dữ liệu điểm danh và sinh viên
-function requireAdmin(req, res, next) {
-  const adminPass = req.headers['x-admin-password'];
-  if (!process.env.ADMIN_PASSWORD || adminPass !== process.env.ADMIN_PASSWORD) {
-    return res.status(401).json({ status: "error", message: "Sai mật khẩu giảng viên" });
+// Chống dò mật khẩu: sai 10 lần trong 15 phút thì khoá địa chỉ IP đó 15 phút
+const ADMIN_MAX_FAILS = 10;
+const ADMIN_LOCK_MS = 15 * 60 * 1000;
+const adminFails = new Map(); // ip -> { count, first }
+function checkAdmin(req) {
+  const ip = req.ip || 'unknown';
+  const now = Date.now();
+  const f = adminFails.get(ip);
+  if (f && now - f.first > ADMIN_LOCK_MS) adminFails.delete(ip);
+  const cur = adminFails.get(ip);
+  if (cur && cur.count >= ADMIN_MAX_FAILS) {
+    return { ok: false, code: 429, message: "Nhập sai mật khẩu quá nhiều lần. Hãy thử lại sau 15 phút." };
   }
+  const expected = process.env.ADMIN_PASSWORD;
+  const given = String(req.headers['x-admin-password'] || '');
+  const ok = !!expected && given.length === expected.length &&
+    crypto.timingSafeEqual(Buffer.from(given), Buffer.from(expected));
+  if (!ok) {
+    const e = adminFails.get(ip) || { count: 0, first: now };
+    e.count++;
+    adminFails.set(ip, e);
+    return { ok: false, code: 401, message: "Sai mật khẩu giảng viên" };
+  }
+  adminFails.delete(ip);
+  return { ok: true };
+}
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, f] of adminFails) if (now - f.first > ADMIN_LOCK_MS) adminFails.delete(ip);
+}, 5 * 60 * 1000).unref();
+
+function requireAdmin(req, res, next) {
+  const a = checkAdmin(req);
+  if (!a.ok) return res.status(a.code).json({ status: "error", message: a.message });
   next();
 }
 app.use('/api/attendance', requireAdmin);
@@ -403,12 +559,9 @@ app.get('/api/attendance/by-date', async (req, res) => {
 // QR Code Generation Endpoint
 app.get("/api/generate-qr", qrLimiter, async (req, res) => {
   try {
-        const adminPass = req.headers['x-admin-password'];
-    if (!process.env.ADMIN_PASSWORD || adminPass !== process.env.ADMIN_PASSWORD) {
-      return res.status(401).json({
-        status: "error",
-        message: "Sai mật khẩu giảng viên"
-      });
+    const adminCheck = checkAdmin(req);
+    if (!adminCheck.ok) {
+      return res.status(adminCheck.code).json({ status: "error", message: adminCheck.message });
     }
     console.log(`Generating QR code for IP: ${req.ip}`);
     const lat = parseFloat(req.query.lat);
@@ -421,7 +574,7 @@ if (isNaN(lat) || isNaN(lng)) {
 }
 const radiusReq = parseInt(req.query.radius, 10);
 const radius = ALLOWED_RADIUS.includes(radiusReq) ? radiusReq : 100;
-const qrData = await generateQRCode(req.ip, lat, lng, radius);
+const qrData = await generateQRCode(`${req.ip}-${Date.now()}`, lat, lng, radius);
     sessionRadius.set(qrData.sessionId, { radius, at: Date.now() });
     
     console.log(` Generated QR code at: ${qrData.qrImage}`);
@@ -468,10 +621,10 @@ app.post("/api/validate-session", async (req, res) => {
       });
     }
     
-    const isValid = !!resolveSession(sessionId, ticket);
+    const check = checkStudentTicket(req);
     res.json({ 
-      valid: isValid,
-      message: isValid ? "Valid session" : "Invalid or expired session ID"
+      valid: !check.error,
+      message: check.error || "Valid session"
     });
   } catch (error) {
     console.error("Session validation error:", error);
@@ -505,9 +658,10 @@ app.get('/verify-attendance', (req, res) => {
         }
 
         const currentTime = Date.now();
-        const qrExpiryTime = 15 * 60 * 1000;
-        if (currentTime - data.timestamp > qrExpiryTime) {
-            return res.status(400).send('QR code expired');
+        let qrTime = Number(data.timestamp);
+        if (qrTime > 0 && qrTime < 1e12) qrTime *= 1000; // phòng trường hợp lưu theo giây
+        if (!(qrTime > 0) || currentTime - qrTime > SCAN_WINDOW_MS) {
+            return res.status(400).send('<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><body style="font-family:sans-serif;text-align:center;padding:40px 20px"><h2>Mã QR này đã cũ</h2><p>Mã trên màn hình đổi liên tục. Hãy quét trực tiếp mã <b>đang chiếu</b> (ảnh chụp hoặc gửi lại không dùng được).</p></body>');
         }
 
         const scanned = resolveSession(data.sessionId, null);
@@ -522,6 +676,7 @@ app.get('/verify-attendance', (req, res) => {
             radius: scanned.radius,
             expiresAt: Date.now() + TICKET_TTL_MS
         });
+        res.cookie(COOKIE_TICKET, ticket, cookieOpts(req, TICKET_TTL_MS));
         res.redirect(`/index.html?sessionId=${encodeURIComponent(data.sessionId)}&ticket=${ticket}`);
     }  catch (error) {
         console.error('QR validation error:', error);
@@ -553,6 +708,39 @@ app.get("/health", (req, res) => {
   });
 });
 
+// Chỉ cho điểm danh bằng Safari hoặc Chrome (iPhone), Chrome (Android)
+function checkBrowser(ua) {
+  var isIOS = /iPhone|iPad|iPod/i.test(ua);
+  var isAndroid = /Android/i.test(ua);
+  if (/Zalo|FBAN|FBAV|FB_IAB|Messenger|Instagram|Line\/|MicroMessenger|TikTok/i.test(ua)) {
+    return { ok: false, kind: 'browser', hint: isIOS ? 'Safari hoặc Chrome' : 'Chrome' };
+  }
+  if (isIOS) {
+    if (/FxiOS|EdgiOS|OPiOS|OPT\/|GSA\/|DuckDuckGo|coc_coc|YaBrowser|UCBrowser/i.test(ua) || !/Safari\//.test(ua)) return { ok: false, kind: 'browser', hint: 'Safari hoặc Chrome' };
+    return { ok: true };
+  }
+  if (isAndroid) {
+    if (!/Chrome\//.test(ua) || /EdgA|OPR\/|OPT\/|SamsungBrowser|Firefox|UCBrowser|CocCoc|coc_coc|YaBrowser|DuckDuckGo|; wv\)|Version\/\d/i.test(ua)) return { ok: false, kind: 'browser', hint: 'Chrome' };
+    return { ok: true };
+  }
+  // Máy tính / máy tính bảng chạy giao diện máy tính: không cho điểm danh
+  return { ok: false, kind: 'desktop', hint: 'điện thoại' };
+}
+
+// Phát hiện máy tính giả làm điện thoại (công cụ lập trình) hoặc phần mềm giả lập Android
+function checkDeviceConsistency(ua, platform, gpu, touch) {
+  var isIOS = /iPhone|iPad|iPod/i.test(ua);
+  var isAndroid = /Android/i.test(ua);
+  platform = String(platform || '');
+  gpu = String(gpu || '');
+  if (/SwiftShader|llvmpipe|VirtualBox|VMware|Android Emulator|Parallels|Microsoft Basic Render/i.test(gpu)) return false;
+  if (isIOS && platform && !/iPhone|iPad|iPod/i.test(platform)) return false;
+  if (isAndroid && (/^(Win|Mac)/i.test(platform) || /x86_64|i686/i.test(platform))) return false;
+  if ((isIOS || isAndroid) && /NVIDIA|GeForce|Radeon|Direct3D|Intel\(R\)|Intel Iris|Intel HD|Intel UHD/i.test(gpu)) return false;
+  if ((isIOS || isAndroid) && touch === 0) return false;
+  return true;
+}
+
 const ALLOWED_SCHOOLS = ["USSH", "UEH", "VLU", "DVSC", "UTC", "UEH-Mekong", "CDDaiViet"];
 
 function validateAttendance(req, res, next) {
@@ -566,6 +754,22 @@ function validateAttendance(req, res, next) {
     });
   }
 
+  const bc = checkBrowser(String(req.headers['user-agent'] || ''));
+  if (!bc.ok) {
+    return res.status(400).json({
+      status: "error",
+      message: bc.kind === 'desktop'
+        ? 'Hãy điểm danh bằng điện thoại (iPhone dùng Safari hoặc Chrome, Android dùng Chrome)'
+        : `Hãy mở trang bằng ${bc.hint} để điểm danh (iPhone dùng Safari hoặc Chrome, Android dùng Chrome)`
+    });
+  }
+  const env = req.body.env || {};
+  if (!checkDeviceConsistency(String(req.headers['user-agent'] || ''), env.platform, env.gpu, typeof env.touch === 'number' ? env.touch : undefined)) {
+    return res.status(400).json({ status: "error", message: "Thiết bị không hợp lệ. Hãy dùng điện thoại thật để quét mã." });
+  }
+  if (env.priv === 'private') {
+    return res.status(400).json({ status: "error", message: "Hãy tắt chế độ ẩn danh / riêng tư rồi quét lại mã." });
+  }
   if (!ALLOWED_SCHOOLS.includes(req.body.school)) {
     return res.status(400).json({ status: "error", message: "Trường không hợp lệ" });
   }
@@ -589,6 +793,18 @@ app.post("/mark-attendance", validateAttendance, async (req, res) => {
     const { universityRollNo, deviceFingerprint, location } = req.body;
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
 
+    // Trình duyệt này đã điểm danh cho MSSV khác trong hôm nay?
+    const devVal = readSigned(parseCookies(req)[COOKIE_DEVICE]);
+    if (devVal) {
+      const [devDate, devRoll] = devVal.split('|');
+      if (devDate === today && devRoll && devRoll !== universityRollNo) {
+        return res.status(400).json({
+          status: "error",
+          message: "Thiết bị này đã dùng để điểm danh hôm nay"
+        });
+      }
+    }
+
     const [existing, existingDevice] = await Promise.all([
       Attendance.findOne({ universityRollNo, date: today }),
       Attendance.findOne({ deviceFingerprint, date: today })
@@ -608,13 +824,11 @@ app.post("/mark-attendance", validateAttendance, async (req, res) => {
       });
     }
 
-        const sessionInfo = resolveSession(req.body.sessionId, req.body.ticket);
-    if (!sessionInfo) {
-      return res.status(400).json({
-        status: "error",
-        message: "Mã QR đã hết hạn, vui lòng quét lại"
-      });
+    const ticketCheck = checkStudentTicket(req);
+    if (ticketCheck.error) {
+      return res.status(400).json({ status: "error", message: ticketCheck.error });
     }
+    const sessionInfo = ticketCheck.info;
     const distance = getDistanceFromLatLngInMeters(
       location.lat, location.lng,
       sessionInfo.lat, sessionInfo.lng
@@ -648,6 +862,17 @@ app.post("/mark-attendance", validateAttendance, async (req, res) => {
       studentId: student._id,
       distanceFromClass: distance
     });
+
+    registerDevice(today, req.ip, req.body.deviceGroup, universityRollNo);
+    try {
+      const samples = Array.isArray(req.body.samples) ? req.body.samples.slice(0, 10) : [];
+      analyzeLocation(today, universityRollNo, { lat: location.lat, lng: location.lng, acc: location.acc }, samples);
+    } catch (e) { console.error('analyzeLocation error:', e.message); }
+
+    // Vé quét chỉ dùng một lần; ghi nhớ thiết bị này đã điểm danh cho MSSV nào hôm nay
+    scanTickets.delete(req.body.ticket);
+    res.clearCookie(COOKIE_TICKET, { path: '/' });
+    res.cookie(COOKIE_DEVICE, signValue(today + '|' + universityRollNo), cookieOpts(req, 24 * 60 * 60 * 1000));
 
     res.json({
       status: "success",
@@ -943,9 +1168,9 @@ app.get('/api/students/:rollNo/community', async (req, res) => {
 
 app.get('/api/export/attendance', async (req, res) => {
   try {
-    const adminPass = req.headers['x-admin-password'];
-    if (!process.env.ADMIN_PASSWORD || adminPass !== process.env.ADMIN_PASSWORD) {
-      return res.status(401).json({ status: "error", message: "Sai mật khẩu giảng viên" });
+    const adminCheck = checkAdmin(req);
+    if (!adminCheck.ok) {
+      return res.status(adminCheck.code).json({ status: "error", message: adminCheck.message });
     }
     const date = String(req.query.date || '');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -962,7 +1187,17 @@ app.get('/api/export/attendance', async (req, res) => {
     const rows = await Attendance.find(filter).sort({ time: 1 }).lean();
     res.json({
       status: "success",
-      data: rows.map(r => ({ universityRollNo: r.universityRollNo, name: r.name, time: r.time }))
+      data: rows.map(r => {
+        const partners = suspectFlags.get(date) && suspectFlags.get(date).get(r.universityRollNo);
+        return {
+          universityRollNo: r.universityRollNo,
+          name: r.name,
+          time: r.time,
+          flag: !!partners,
+          flagWith: partners ? Array.from(partners) : [],
+          locFlag: (locFlags.get(date) && locFlags.get(date).get(r.universityRollNo)) || ''
+        };
+      })
     });
   } catch (error) {
     console.error("Export error:", error);
@@ -971,9 +1206,9 @@ app.get('/api/export/attendance', async (req, res) => {
 });
 app.delete('/api/export/attendance', async (req, res) => {
   try {
-    const adminPass = req.headers['x-admin-password'];
-    if (!process.env.ADMIN_PASSWORD || adminPass !== process.env.ADMIN_PASSWORD) {
-      return res.status(401).json({ status: "error", message: "Sai mật khẩu giảng viên" });
+    const adminCheck = checkAdmin(req);
+    if (!adminCheck.ok) {
+      return res.status(adminCheck.code).json({ status: "error", message: adminCheck.message });
     }
     const date = String(req.query.date || '');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -987,7 +1222,17 @@ app.delete('/api/export/attendance', async (req, res) => {
       }
       filter.section = school;
     }
+    const rollsToDelete = await Attendance.find(filter).distinct('universityRollNo');
     const result = await Attendance.deleteMany(filter);
+    const dayLoc = locFlags.get(date);
+    if (dayLoc) rollsToDelete.forEach(r => dayLoc.delete(r));
+    const dayRecs = locRecords.get(date);
+    if (dayRecs) locRecords.set(date, dayRecs.filter(x => !rollsToDelete.includes(x.roll)));
+    const dayFlags = suspectFlags.get(date);
+    if (dayFlags) {
+      rollsToDelete.forEach(r => dayFlags.delete(r));
+      if (!dayFlags.size) suspectFlags.delete(date);
+    }
     res.json({ status: "success", deleted: result.deletedCount });
   } catch (error) {
     console.error("Delete error:", error);

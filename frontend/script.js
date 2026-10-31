@@ -12,6 +12,76 @@ function getSessionId() {
 
 const sessionId = getSessionId();
 const ticket = new URLSearchParams(window.location.search).get('ticket') || '';
+// "Cấu hình máy" không phụ thuộc trình duyệt: dùng để phát hiện cùng một điện thoại mở bằng nhiều trình duyệt
+function getGpuInfo() {
+    try {
+        var c = document.createElement('canvas');
+        var gl = c.getContext('webgl') || c.getContext('experimental-webgl');
+        var ext = gl && gl.getExtension('WEBGL_debug_renderer_info');
+        if (ext) return gl.getParameter(ext.UNMASKED_VENDOR_WEBGL) + '|' + gl.getParameter(ext.UNMASKED_RENDERER_WEBGL);
+    } catch (e) {}
+    return '';
+}
+
+// Thông tin thiết bị để máy chủ phát hiện máy tính giả làm điện thoại / giả lập
+function getEnvInfo(priv) {
+    return {
+        platform: String(navigator.platform || ''),
+        gpu: getGpuInfo().slice(0, 200),
+        touch: typeof navigator.maxTouchPoints === 'number' ? navigator.maxTouchPoints : undefined,
+        priv: priv || 'unknown'
+    };
+}
+
+// Lấy vị trí nhiều lần trong khoảng 3 giây (vị trí thật luôn dao động nhẹ, vị trí giả thường đứng yên tuyệt đối)
+function collectLocation() {
+    return new Promise(function (resolve, reject) {
+        if (!navigator.geolocation) return reject(new Error('nogeo'));
+        var samples = [], done = false, endTimer = null, hardTimer = null, watchId = null;
+        function finish() {
+            if (done) return;
+            done = true;
+            if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+            clearTimeout(endTimer); clearTimeout(hardTimer);
+            if (samples.length) resolve(samples); else reject(new Error('timeout'));
+        }
+        watchId = navigator.geolocation.watchPosition(function (p) {
+            samples.push({ lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy });
+            if (samples.length === 1) endTimer = setTimeout(finish, 3000);
+            if (samples.length >= 5) finish();
+        }, function (err) {
+            if (!samples.length && !done) {
+                done = true;
+                if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+                clearTimeout(hardTimer);
+                reject(err);
+            }
+        }, { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 });
+        hardTimer = setTimeout(finish, 16000);
+    });
+}
+
+function getDeviceGroup() {
+    try {
+        var gpu = getGpuInfo();
+        var parts = [
+            Math.max(screen.width, screen.height) + 'x' + Math.min(screen.width, screen.height),
+            window.devicePixelRatio || 1,
+            navigator.hardwareConcurrency || 0,
+            navigator.maxTouchPoints || 0,
+            screen.colorDepth || 0,
+            navigator.platform || '',
+            Intl.DateTimeFormat().resolvedOptions().timeZone || '',
+            gpu
+        ].join('|');
+        var h = 5381;
+        for (var i = 0; i < parts.length; i++) { h = ((h * 33) ^ parts.charCodeAt(i)) >>> 0; }
+        return h.toString(16).padStart(8, '0');
+    } catch (e) {
+        return '';
+    }
+}
+
 async function generateDeviceFingerprint() {
     try {
         // Cache fingerprint for the day to avoid recomputation
@@ -96,147 +166,124 @@ document.addEventListener("DOMContentLoaded", () => {
         window.location.href = `/dashboard.html?rollNo=${encodeURIComponent(rollNo)}`;
     });
 
+    function setStatus(text, color) {
+        statusElement.innerText = text;
+        statusElement.className = "text-center mt-4 text-sm " + (color || "text-red-600");
+    }
+    function resetButton() {
+        isSubmitting = false;
+        submitButton.disabled = false;
+        submitButton.innerHTML = `✅ Xác nhận điểm danh`;
+    }
+
+    function showSuccess(name, universityRollNo, school) {
+        document.getElementById("okName").textContent = name;
+        document.getElementById("okId").textContent = universityRollNo;
+        document.getElementById("okSchool").textContent = school;
+        document.getElementById("okTime").textContent = new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Ho_Chi_Minh" });
+        form.classList.add("hidden");
+        statusElement.innerText = "";
+        var lb = document.getElementById("locBox"); if (lb) lb.classList.add("hidden");
+        document.getElementById("successScreen").classList.remove("hidden");
+        window.scrollTo(0, 0);
+        if (navigator.vibrate) { try { navigator.vibrate(200); } catch (e) {} }
+    }
+
     form.addEventListener("submit", async function (event) {
         event.preventDefault();
-        
-        if (!sessionId) {
-            statusElement.innerText = "Hãy quét mã QR trước";
-            statusElement.className = "text-center mt-4 text-sm text-red-600";
-            isSubmitting = false;
+        if (isSubmitting) return;
+
+        if (!sessionId || !ticket) {
+            setStatus("Hãy dùng camera quét trực tiếp mã QR đang chiếu trên màn hình");
             return;
         }
-        if (isSubmitting) return;
+
+        const name = document.getElementById("name").value.trim();
+        const universityRollNo = document.getElementById("universityRollNo").value.replace(/\s+/g, "").toUpperCase();
+        const school = document.getElementById("school").value;
+        if (!school || !name || !universityRollNo) {
+            setStatus("Vui lòng chọn trường và điền đủ họ tên, mã số sinh viên");
+            return;
+        }
+
         isSubmitting = true;
-        
+        submitButton.disabled = true;
+        submitButton.innerHTML = `Đang kiểm tra...`;
+
         try {
+            // Chặn tab ẩn danh / riêng tư
+            const priv = window.__privateCheck ? await window.__privateCheck : 'unknown';
+            if (priv === 'private') {
+                setStatus("Bạn đang mở tab ẩn danh / riêng tư. Hãy mở trình duyệt bình thường rồi quét lại mã.");
+                resetButton();
+                return;
+            }
+
             const validationResponse = await fetch('/api/validate-session', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ sessionId, ticket })
             });
-
-            const validationData = await validationResponse.json();
-            
+            const validationData = await validationResponse.json().catch(() => ({}));
             if (!validationData.valid) {
-                statusElement.innerText = "Mã QR không hợp lệ hoặc đã hết hạn. Hãy quét lại.";
-                statusElement.className = "text-center mt-4 text-sm text-red-600";
-                isSubmitting = false;
+                setStatus(validationData.message || "Mã QR không hợp lệ hoặc đã hết hạn. Hãy quét lại.");
+                resetButton();
                 return;
             }
-            
-            submitButton.disabled = true;
-            submitButton.innerHTML = `Processing...`;
-        
-            const name = document.getElementById("name").value.trim();
-            const universityRollNo = document.getElementById("universityRollNo").value.replace(/\s+/g, "").toUpperCase();
-            const school = document.getElementById("school").value;
-        
-            if (!school || !name || !universityRollNo) {
-                statusElement.innerText = "Vui lòng chọn trường và điền đủ họ tên, mã số sinh viên";
-                statusElement.className = "text-center mt-4 text-sm text-red-600";
-                isSubmitting = false;
-                submitButton.disabled = false;
-                submitButton.innerHTML = `✅ Xác nhận điểm danh`;
-                return;
-            }
-            
+
             const fingerprint = await generateDeviceFingerprint();
-        
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    async (position) => {
-                        const payload = {
-                            name,
-                            universityRollNo,
-                            school,
-                            location: {
-                                lat: position.coords.latitude,
-                                lng: position.coords.longitude
-                            },
-                            deviceFingerprint: fingerprint,
-                            sessionId,
-                            ticket
-                        };
-        
-                        try {
-                            const response = await fetch(API_ENDPOINT, {
-                                method: "POST",
-                                headers: {
-                                    "Content-Type": "application/json"
-                                },
-                                body: JSON.stringify(payload)
-                            });
-        
-                            const data = await response.json();
-        
-                            if (response.status === 400 && (data.message === "Attendance already marked today" || data.message === "Bạn đã điểm danh hôm nay rồi")) {
-                                statusElement.innerText = "Bạn đã điểm danh hôm nay rồi";
-                                statusElement.className = "text-center mt-4 text-sm text-yellow-600";
-                                        // Still allow viewing dashboard
-        if (SHOW_DASHBOARD) {
-            window.location.href = `/dashboard.html?rollNo=${encodeURIComponent(universityRollNo)}`;
-        }
-        return;
-                            }
-        
-                            if (!response.ok) {
-                                throw new Error(data.message || "Failed to mark attendance");
-                            }
-        
-                            statusElement.innerText = data.message;
-                            statusElement.className = `text-center mt-4 text-sm text-green-600`;
-        
-                                    // Redirect to dashboard with roll number
-        if (SHOW_DASHBOARD) {
-            window.location.href = `/dashboard.html?rollNo=${encodeURIComponent(universityRollNo)}`;
-        } else {
-            // Màn hình thành công to, rõ
-            document.getElementById("okName").textContent = name;
-            document.getElementById("okId").textContent = universityRollNo;
-            document.getElementById("okSchool").textContent = school;
-            document.getElementById("okTime").textContent = new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Ho_Chi_Minh" });
-            form.classList.add("hidden");
-            statusElement.innerText = "";
-            var lb = document.getElementById("locBox"); if (lb) lb.classList.add("hidden");
-            document.getElementById("successScreen").classList.remove("hidden");
-            window.scrollTo(0, 0);
-            if (navigator.vibrate) { try { navigator.vibrate(200); } catch (e) {} }
-        }
-                        } catch (error) {
-                            console.error("API error:", error);
-                            statusElement.innerText = error.message;
-                            statusElement.className = "text-center mt-4 text-sm text-red-600";
-                        } finally {
-                            isSubmitting = false;
-                            submitButton.disabled = false;
-                            submitButton.innerHTML = `✅ Xác nhận điểm danh`;
-                        }
-                    },
-                    (error) => {
-                        statusElement.innerText = "Không lấy được vị trí. Hãy bật GPS và cho phép vị trí rồi thử lại.";
-                        statusElement.className = "text-center mt-4 text-sm text-red-600";
-                        submitButton.disabled = false;
-                        submitButton.innerHTML = `✅ Xác nhận điểm danh`;
-                        isSubmitting = false;
-                    },
-                    { timeout: 10000, enableHighAccuracy: true }
-                );
-            } else {
-                statusElement.innerText = "Geolocation not supported.";
-                statusElement.className = "text-center mt-4 text-sm text-red-600";
-                isSubmitting = false;
-                submitButton.disabled = false;
-                submitButton.innerHTML = `✅ Xác nhận điểm danh`;
+
+            submitButton.innerHTML = `Đang lấy vị trí...`;
+            let samples;
+            try {
+                samples = await collectLocation();
+            } catch (geoErr) {
+                setStatus("Không lấy được vị trí. Hãy bật GPS và cho phép vị trí rồi thử lại.");
+                resetButton();
+                return;
             }
+            // Dùng lần đo chính xác nhất
+            const best = samples.slice().sort((a, b) => (a.acc || 9999) - (b.acc || 9999))[0];
+
+            submitButton.innerHTML = `Đang gửi...`;
+            const payload = {
+                name,
+                universityRollNo,
+                school,
+                location: { lat: best.lat, lng: best.lng, acc: best.acc },
+                samples,
+                deviceFingerprint: fingerprint,
+                deviceGroup: getDeviceGroup(),
+                env: getEnvInfo(priv),
+                sessionId,
+                ticket
+            };
+
+            const response = await fetch(API_ENDPOINT, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json().catch(() => ({}));
+
+            if (response.status === 400 && (data.message === "Attendance already marked today" || data.message === "Bạn đã điểm danh hôm nay rồi")) {
+                setStatus("Bạn đã điểm danh hôm nay rồi", "text-yellow-600");
+                if (SHOW_DASHBOARD) window.location.href = `/dashboard.html?rollNo=${encodeURIComponent(universityRollNo)}`;
+                resetButton();
+                return;
+            }
+            if (!response.ok) throw new Error(data.message || "Điểm danh không thành công");
+
+            if (SHOW_DASHBOARD) {
+                window.location.href = `/dashboard.html?rollNo=${encodeURIComponent(universityRollNo)}`;
+            } else {
+                showSuccess(name, universityRollNo, school);
+            }
+            resetButton();
         } catch (err) {
-            console.error("Unexpected error:", err);
-            statusElement.innerText = "Có lỗi xảy ra, hãy thử lại.";
-            statusElement.className = "text-center mt-4 text-sm text-red-600";
-            isSubmitting = false;
-            submitButton.disabled = false;
-            submitButton.innerHTML = `✅ Xác nhận điểm danh`;
+            console.error("Attendance error:", err);
+            setStatus(err && err.message ? err.message : "Có lỗi xảy ra, hãy thử lại.");
+            resetButton();
         }
     });
 });

@@ -41,7 +41,8 @@ async function generateQRCode(ipAddress, lat, lng) {
             timestamp,
             hash
         }))}`;
-        const fileName = `qr_${timestamp}.png`;
+        // Tên file có thêm phần ngẫu nhiên để không ai đoán được đường dẫn ảnh mã QR
+        const fileName = `qr_${timestamp}_${crypto.randomBytes(12).toString('hex')}.png`;
         const filePath = path.join(QR_CODE_DIR, fileName);
 
         await QRCode.toFile(filePath, qrData, {
