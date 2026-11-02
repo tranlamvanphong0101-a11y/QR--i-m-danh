@@ -82,68 +82,31 @@ function getDeviceGroup() {
     }
 }
 
-async function generateDeviceFingerprint() {
+// Mã thiết bị: một mã NGẪU NHIÊN tạo một lần và lưu trong trình duyệt này.
+// (Trước đây mã được tính từ cấu hình máy, nên hai bạn dùng cùng đời điện thoại
+//  bị trùng mã và bị báo nhầm "Thiết bị này đã dùng để điểm danh hôm nay".)
+function randomId() {
     try {
-        // Cache fingerprint for the day to avoid recomputation
-        const today = new Date().toISOString().split('T')[0];
-        const cacheKey = `fingerprint-${today}`;
-        const cachedFingerprint = localStorage.getItem(cacheKey);
-        if (cachedFingerprint) return cachedFingerprint;
+        if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+        var a = new Uint8Array(16);
+        crypto.getRandomValues(a);
+        return Array.from(a, function (x) { return x.toString(16).padStart(2, '0'); }).join('');
+    } catch (e) {
+        return String(Date.now()) + Math.random().toString(16).slice(2);
+    }
+}
 
-        // Collect device characteristics (same as before)
-        const fingerprintData = {
-            userAgent: navigator.userAgent,
-            screenResolution: `${window.screen.width}x${window.screen.height}`,
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-            language: navigator.language,
-            hardwareConcurrency: navigator.hardwareConcurrency || 'unknown',
-            deviceMemory: navigator.deviceMemory || 'unknown',
-            touchSupport: 'ontouchstart' in window,
-            dateSalt: today
-        };
-        
-        // Add canvas fingerprint (same as before)
-        try {
-            const canvas = document.createElement('canvas');
-            canvas.width = 100;
-            canvas.height = 30;
-            const ctx = canvas.getContext('2d');
-            ctx.textBaseline = "top";
-            ctx.font = "14px 'Arial'";
-            ctx.fillStyle = "#f60";
-            ctx.fillRect(125, 1, 62, 20);
-            ctx.fillStyle = "#069";
-            ctx.fillText("Fingerprint", 2, 15);
-            fingerprintData.canvasHash = canvas.toDataURL();
-        } catch (e) {
-            console.log("Canvas fingerprint failed:", e);
-        }
-        
-        // Call Java implementation via API
-        const fingerprintString = JSON.stringify(fingerprintData);
-        const response = await fetch('/api/consistent-hash', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ input: fingerprintString })
-        });
-        
-        if (!response.ok) throw new Error("Hash API failed");
-        const { fingerprint } = await response.json();
-
-        // Cache the fingerprint
-        localStorage.setItem(cacheKey, fingerprint);
-        return fingerprint;
-    } catch (error) {
-        console.error("Fingerprint generation error:", error);
-        // Fallback to simpler fingerprint
-        return btoa(JSON.stringify({
-            userAgent: navigator.userAgent,
-            screenResolution: `${window.screen.width}x${window.screen.height}`,
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-            salt: "fallback-" + new Date().toISOString().split('T')[0]
-        }));
+async function generateDeviceFingerprint() {
+    var KEY = 'att_device_id';
+    try {
+        var v = localStorage.getItem(KEY);
+        if (v && /^[A-Za-z0-9-]{16,64}$/.test(v)) return 'd-' + v;
+        v = randomId();
+        localStorage.setItem(KEY, v);
+        return 'd-' + v;
+    } catch (e) {
+        // Trình duyệt không cho lưu: dùng mã tạm cho lần này
+        return 'd-tmp-' + randomId();
     }
 }
 
