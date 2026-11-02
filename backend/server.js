@@ -787,6 +787,10 @@ function validateAttendance(req, res, next) {
       message: "Location (lat, lng) is required and must be numeric"
     });
   }
+  const { lat, lng } = req.body.location;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+    return res.status(400).json({ status: "error", message: "Vị trí không hợp lệ. Hãy bật GPS rồi quét lại mã." });
+  }
   next();
 }
 
@@ -844,7 +848,7 @@ app.post("/mark-attendance", validateAttendance, async (req, res) => {
     );
 
     const maxDistance = sessionInfo.radius || MAX_DISTANCE_METERS;
-    if (distance > maxDistance) {
+    if (!(distance <= maxDistance)) { // viết như vậy để giá trị lỗi (NaN) cũng bị từ chối
       return res.status(400).json({
         status: "error",
         message: `Bạn phải ở trong phạm vi ${maxDistance} m quanh giảng viên để điểm danh (hiện cách khoảng ${distance.toFixed(0)} m)`
