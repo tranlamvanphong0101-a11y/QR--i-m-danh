@@ -9,102 +9,118 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="/script.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg: #F5F7FF; --surface: #FFFFFF; --line: #E2E8F0; --line-2: #94A3B8;
+            --ink: #0F172A; --ink-2: #334155; --muted: #475569;
+            --blue: #2563EB; --blue-ink: #1D4ED8; --violet: #7C3AED; --select: #EEF2FF;
+            --ok: #047857; --bad: #B91C1C;
+            --font: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", sans-serif;
+            --ease: cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        html, body { overflow-x: clip; }
         body {
-            min-height: 100vh;
-            background: radial-gradient(circle at 15% 10%, rgba(125,211,252,.55), transparent 45%), radial-gradient(circle at 90% 85%, rgba(196,181,253,.7), transparent 50%), linear-gradient(160deg, #3b82f6 0%, #6d5df6 55%, #8b5cf6 100%);
+            min-height: 100vh; margin: 0; font-family: var(--font); color: var(--ink);
+            background: radial-gradient(420px 320px at 0% 0%, #DBEAFE 0%, rgba(219,234,254,0) 70%), radial-gradient(420px 340px at 100% 100%, #EDE9FE 0%, rgba(237,233,254,0) 70%), var(--bg);
             background-attachment: fixed;
         }
-        .field {
-            width: 100%;
-            padding: 0.8rem 1rem;
-            border: 2px solid #e5e7eb;
-            border-radius: 0.9rem;
-            background: #f9fafb;
-            transition: all 0.15s;
-        }
-        .success-check { animation: popIn .45s cubic-bezier(.2,1.4,.4,1) both; }
-        .check-path { stroke-dasharray: 60; stroke-dashoffset: 60; animation: drawCheck .5s .25s ease-out forwards; }
-        @keyframes popIn { from { transform: scale(.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        ::selection { background: #EDE7FE; color: var(--ink); }
+        .hidden { display: none !important; }
+        .ico { flex: none; }
+        .card { background: var(--surface); border: 1px solid #E0E7FF; box-shadow: 0 1px 2px rgba(15,23,42,0.05), 0 12px 32px rgba(49,46,129,0.08); }
+        .lbl { display: block; font-size: 15px; font-weight: 700; color: var(--ink); margin-bottom: 8px; }
+        .field { width: 100%; min-height: 52px; box-sizing: border-box; padding: 0 16px; border: 1px solid var(--line-2); border-radius: 12px; background: var(--surface); color: var(--ink); font-size: 17px; font-family: var(--font); caret-color: var(--violet); transition: border-color 150ms ease, box-shadow 150ms ease; }
+        #universityRollNo::placeholder { text-transform: none; letter-spacing: 0; font-weight: 400; }
+        .field:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.18); }
+        .school-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+        .school-opt { position: relative; }
+        .school-opt input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+        .school-opt span { display: flex; align-items: center; justify-content: center; min-height: 48px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--surface); color: var(--ink-2); font-size: 15px; font-weight: 600; cursor: pointer; transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease; }
+        .school-opt input:checked + span { background: var(--select); border: 2px solid var(--blue); color: var(--blue-ink); font-weight: 700; }
+        .school-opt input:focus-visible + span { outline: 3px solid #A5B4FC; outline-offset: 2px; }
+        .btn-primary { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 54px; border: 0; border-radius: 14px; background: linear-gradient(135deg, var(--blue), var(--violet)); color: #fff; font-size: 17px; font-weight: 700; font-family: var(--font); cursor: pointer; box-shadow: 0 6px 16px rgba(79, 70, 229, 0.25); transition: box-shadow 150ms ease, transform 120ms var(--ease), opacity 150ms ease; }
+        .btn-primary:active { transform: scale(0.98); }
+        .btn-primary:disabled { opacity: 0.7; cursor: progress; }
+        button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid #A5B4FC; outline-offset: 2px; }
+        .success-check { animation: popIn .42s var(--ease) both; }
+        .check-path { stroke-dasharray: 60; stroke-dashoffset: 60; animation: drawCheck .45s .22s var(--ease) forwards; }
+        @keyframes popIn { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         @keyframes drawCheck { to { stroke-dashoffset: 0; } }
-        .field:focus {
-            outline: none;
-            border-color: #6366f1;
-            background: #fff;
-            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
+        @media (prefers-reduced-motion: reduce) {
+            .success-check { animation: none; }
+            .check-path { animation: none; stroke-dashoffset: 0; }
+            .btn-primary, .field, .school-opt span { transition: none; }
         }
     </style>
 </head>
 <body class="flex items-center justify-center p-4">
-    <div class="w-full max-w-md bg-white/95 backdrop-blur rounded-3xl shadow-2xl p-7 my-6">
+    <div class="card w-full max-w-md rounded-3xl p-6 my-6">
 
-        <div class="text-center mb-7">
-            <div class="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-blue-600 to-violet-600 flex items-center justify-center shadow-lg"><span class="text-white font-extrabold" style="font-size:1.7rem;letter-spacing:.02em">TH</span></div>
-            <h2 class="text-2xl font-extrabold text-gray-800">Điểm danh sinh viên</h2>
-            <p class="text-gray-500 text-sm mt-1">Điền thông tin của bạn để xác nhận có mặt</p>
+        <div class="flex items-center gap-3 mb-5">
+            <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--blue),var(--violet));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;flex:none">TH</div>
+            <div>
+                <h1 style="margin:0;font-size:22px;line-height:1.25;font-weight:800">Điểm danh</h1>
+                <p style="margin:2px 0 0;font-size:14px;color:var(--muted)">Điền thông tin để xác nhận có mặt</p>
+            </div>
         </div>
         <div id="locBox" class="mb-5 rounded-2xl p-4 text-sm bg-amber-50 border border-amber-200 text-amber-800">
-            <div id="locMsg">📍 Đang xin quyền vị trí... Khi trình duyệt hỏi, hãy bấm <b>Cho phép</b>.</div>
+            <div id="locMsg">Đang xin quyền vị trí. Khi trình duyệt hỏi, hãy bấm <b>Cho phép</b>.</div>
             <div id="locHelp" class="hidden mt-3 leading-relaxed"></div>
             <button id="locRetry" type="button"
-                class="hidden mt-3 w-full bg-indigo-500 text-white font-semibold py-2 rounded-xl">
-                🔄 Tôi đã bật, tải lại trang
+                class="hidden mt-3 w-full font-semibold rounded-xl" style="min-height:44px;background:var(--blue-ink);color:#fff;border:0;font-family:var(--font)">
+                Tôi đã bật, tải lại trang
             </button>
         </div>
         <div id="browserBlock" class="hidden mb-5 rounded-2xl p-4 text-sm bg-rose-50 border border-rose-200 text-rose-800 text-center">
-            <div class="text-3xl mb-2">🚫</div>
+            <div class="flex justify-center mb-2" style="color:var(--bad)"><svg class="ico" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 6.1A10.6 10.6 0 0 1 12 6c5 0 9 6 9 6a17.6 17.6 0 0 1-3.2 3.8"/><path d="M6.4 6.5C4.3 8 3 12 3 12s4 6 9 6a9.7 9.7 0 0 0 4.3-1"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg></div>
             <div id="bbTitle" class="font-bold text-base mb-2"></div>
             <div id="bbText" class="leading-relaxed"></div>
         </div>
-        <form id="attendanceForm" class="space-y-4">
+        <form id="attendanceForm" class="space-y-5 hidden">
+            <fieldset style="border:0;margin:0;padding:0">
+                <legend class="lbl" style="padding:0">Trường</legend>
+                <input type="hidden" id="school" value="">
+                <div class="school-grid">
+                    <label class="school-opt"><input type="radio" name="schoolPick" value="USSH"><span>USSH</span></label>
+                    <label class="school-opt"><input type="radio" name="schoolPick" value="UEH"><span>UEH</span></label>
+                    <label class="school-opt"><input type="radio" name="schoolPick" value="VLU"><span>VLU</span></label>
+                    <label class="school-opt"><input type="radio" name="schoolPick" value="DVSC"><span>DVSC</span></label>
+                </div>
+            </fieldset>
+
             <div>
-                <label for="school" class="block text-sm font-semibold text-gray-700 mb-1">🏫 Trường</label>
-                <select id="school" class="field">
-                    <option value="">— Chọn trường —</option>
-                    <option value="USSH">USSH</option>
-                    <option value="UEH">UEH</option>
-                    <option value="VLU">VLU</option>
-                    <option value="DVSC">DVSC</option>
-                </select>
+                <label for="universityRollNo" class="lbl">Mã số sinh viên</label>
+                <input type="text" id="universityRollNo" placeholder="Ví dụ: 2256020091" class="field" autocomplete="off" autocapitalize="characters" spellcheck="false" style="text-transform:uppercase;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:0.02em">
             </div>
 
             <div>
-                <label for="universityRollNo" class="block text-sm font-semibold text-gray-700 mb-1">🆔 Mã số sinh viên</label>
-                <input type="text" id="universityRollNo" placeholder="Nhập mã số sinh viên" class="field" autocomplete="off" autocapitalize="characters" spellcheck="false" style="text-transform:uppercase">
+                <label for="name" class="lbl">Họ và tên</label>
+                <input type="text" id="name" placeholder="Như trong danh sách lớp" class="field" autocomplete="name">
             </div>
 
-            <div>
-                <label for="name" class="block text-sm font-semibold text-gray-700 mb-1">👤 Họ và tên</label>
-                <input type="text" id="name" placeholder="Nhập họ và tên" class="field" autocomplete="off">
-            </div>
-
-            <button type="submit"
-                class="w-full bg-gradient-to-r from-blue-600 to-violet-600 text-white font-bold py-3.5 rounded-xl shadow-lg hover:opacity-90 active:scale-95 transition flex items-center justify-center gap-2">
-                ✅ Xác nhận điểm danh
-            </button>
+            <button type="submit" class="btn-primary">Xác nhận có mặt</button>
         </form>
 
-        <p id="status" class="text-center mt-5 text-sm font-medium"></p>
+        <p id="status" role="alert" class="text-center mt-5 text-sm font-medium"></p>
 
         <!-- Màn hình điểm danh thành công -->
-        <div id="successScreen" class="hidden text-center py-6">
-            <div class="success-check mx-auto mb-5 w-28 h-28 rounded-full bg-emerald-500 flex items-center justify-center shadow-xl">
-                <svg viewBox="0 0 52 52" class="w-16 h-16" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path class="check-path" d="M14 27 l8 8 l16 -18"/></svg>
+        <div id="successScreen" role="status" class="hidden text-center py-4">
+            <div class="success-check mx-auto mb-5 flex items-center justify-center" style="width:104px;height:104px;border-radius:999px;background:var(--ok);box-shadow:0 0 0 10px #D1FAE5">
+                <svg viewBox="0 0 52 52" width="58" height="58" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="check-path" d="M14 27 l8 8 l16 -18"/></svg>
             </div>
-            <h2 class="font-extrabold text-emerald-600" style="font-size:clamp(1.25rem,6.2vw,1.875rem);white-space:nowrap">Điểm danh thành công!</h2>
-            <div class="mt-5 rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-left space-y-1">
-                <div class="text-xs text-emerald-700 font-semibold">Họ và tên</div>
-                <div id="okName" class="text-lg font-bold text-gray-900 break-words"></div>
-                <div class="flex justify-between gap-3 pt-2">
-                    <div><div class="text-xs text-emerald-700 font-semibold">MSSV</div><div id="okId" class="font-bold text-gray-900 break-all"></div></div>
-                    <div><div class="text-xs text-emerald-700 font-semibold">Trường</div><div id="okSchool" class="font-bold text-gray-900"></div></div>
-                    <div><div class="text-xs text-emerald-700 font-semibold">Lúc</div><div id="okTime" class="font-bold text-gray-900"></div></div>
-                </div>
-            </div>
-            <p class="mt-5 text-sm text-gray-600">Bạn đã được ghi nhận. Có thể tắt trang này.</p>
+            <h2 style="margin:12px 0 0;font-weight:800;color:var(--ok);font-size:clamp(1.25rem,6.2vw,1.75rem);white-space:nowrap">Điểm danh thành công!</h2>
+            <p style="margin:6px 0 0;font-size:16px;color:var(--muted)">Bạn có thể tắt trang này.</p>
+            <dl class="text-left" style="margin:20px 0 0;padding:4px 16px;border-radius:16px;background:var(--surface);border:1px solid var(--line)">
+                <div class="flex justify-between gap-3" style="padding:12px 0;border-bottom:1px solid var(--line)"><dt style="font-size:15px;color:var(--muted)">Họ và tên</dt><dd id="okName" style="margin:0;font-size:16px;font-weight:700;text-align:right;overflow-wrap:anywhere"></dd></div>
+                <div class="flex justify-between gap-3" style="padding:12px 0;border-bottom:1px solid var(--line)"><dt style="font-size:15px;color:var(--muted)">MSSV</dt><dd id="okId" style="margin:0;font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;overflow-wrap:anywhere"></dd></div>
+                <div class="flex justify-between gap-3" style="padding:12px 0;border-bottom:1px solid var(--line)"><dt style="font-size:15px;color:var(--muted)">Trường</dt><dd id="okSchool" style="margin:0;font-size:16px;font-weight:700"></dd></div>
+                <div class="flex justify-between gap-3" style="padding:12px 0"><dt style="font-size:15px;color:var(--muted)">Lúc</dt><dd id="okTime" style="margin:0;font-size:16px;font-weight:700;font-variant-numeric:tabular-nums"></dd></div>
+            </dl>
         </div>
 
-        <p class="text-center text-xs text-gray-400 mt-4">📍 Hãy cho phép vị trí khi trình duyệt hỏi</p>
+        <p id="locHint" class="flex items-center justify-center gap-2 mt-4" style="font-size:13px;color:var(--muted)"><svg class="ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Hãy cho phép vị trí khi trình duyệt hỏi</p>
 
         <!-- Khung xem điểm danh cá nhân: đang ẩn, xóa style="display:none" để bật lại khi nâng cấp -->
         <div class="mt-8" style="display:none">
@@ -117,7 +133,7 @@
 
         <div id="accessMessage" class="text-sm text-center mt-4 text-red-600 font-medium"></div>
 
-        <p class="text-center text-sm text-gray-700 mt-6 select-none">© 2026 <b>TH</b> · Bản quyền thuộc về <b>@tbmt</b></p>
+        <p class="text-center mt-6 select-none" style="font-size:13px;color:var(--muted)">© 2026 <b style="color:var(--ink-2)">TH</b> · Bản quyền thuộc về <b style="color:var(--ink-2)">@tbmt</b></p>
 
         <div id="dashboard" class="mt-6 hidden">
             <h3 class="text-lg font-semibold text-gray-800 mb-4 text-center">Lịch sử điểm danh</h3>
@@ -265,7 +281,9 @@
                 ok:   'bg-emerald-50 border-emerald-200 text-emerald-800',
                 bad:  'bg-rose-50 border-rose-200 text-rose-800'
             };
-            box.className = 'mb-5 rounded-2xl p-4 text-sm border ' + map[kind];
+            box.className = 'mb-5 rounded-2xl p-4 border ' + map[kind];
+            box.style.fontSize = '15px';
+            if (window.__browserBlocked) box.classList.add('hidden');
         }
 
         function showHelp() {
@@ -292,26 +310,32 @@
         function ask() {
             if (!navigator.geolocation) {
                 setStyle('bad');
-                msg.innerHTML = '❌ Trình duyệt này không hỗ trợ định vị. Hãy mở bằng Chrome hoặc Safari.';
+                msg.innerHTML = 'Trình duyệt này không hỗ trợ định vị. Hãy mở bằng Chrome hoặc Safari.';
                 return;
             }
             navigator.geolocation.getCurrentPosition(
                 function () {
                     setStyle('ok');
-                    msg.innerHTML = '✅ Đã nhận vị trí. Bạn có thể điểm danh.';
+                    msg.innerHTML = 'Đã nhận vị trí. Bạn có thể điểm danh.';
                     help.classList.add('hidden');
                     retry.classList.add('hidden');
+                    // Chỉ hiện ô điểm danh khi đã có vị trí
+                    if (!window.__browserBlocked) {
+                        document.getElementById('attendanceForm').classList.remove('hidden');
+                        var hint = document.getElementById('locHint'); if (hint) hint.classList.add('hidden');
+                    }
                 },
                 function (err) {
                     setStyle('bad');
+                    document.getElementById('attendanceForm').classList.add('hidden');
                     if (err.code === 1) {
-                        msg.innerHTML = '🚫 Bạn chưa cho phép vị trí nên chưa điểm danh được. Làm theo hướng dẫn dưới đây:';
+                        msg.innerHTML = 'Bạn chưa cho phép vị trí nên chưa điểm danh được. Làm theo hướng dẫn dưới đây:';
                         showHelp();
                     } else if (err.code === 2) {
-                        msg.innerHTML = '📡 Chưa xác định được vị trí. Hãy bật <b>Vị trí (GPS)</b> của điện thoại, ra chỗ thoáng rồi thử lại.';
+                        msg.innerHTML = 'Chưa xác định được vị trí. Hãy bật <b>Vị trí (GPS)</b> của điện thoại, ra chỗ thoáng rồi thử lại.';
                         retry.classList.remove('hidden');
                     } else {
-                        msg.innerHTML = '⏱ Lấy vị trí quá lâu. Hãy bật GPS, ra chỗ thoáng rồi thử lại.';
+                        msg.innerHTML = 'Lấy vị trí quá lâu. Hãy bật GPS, ra chỗ thoáng rồi thử lại.';
                         retry.classList.remove('hidden');
                     }
                 },
@@ -323,13 +347,13 @@
 
         if (inApp) {
             setStyle('bad');
-            msg.innerHTML = '⚠️ Bạn đang mở trong ứng dụng (Zalo/Messenger...) nên có thể không cấp được vị trí. ' +
+            msg.innerHTML = 'Bạn đang mở trong ứng dụng (Zalo/Messenger...) nên có thể không cấp được vị trí. ' +
                 'Hãy bấm <b>⋮ hoặc biểu tượng chia sẻ → Mở bằng Chrome/Safari</b>, hoặc sao chép link dán vào trình duyệt.';
-            help.innerHTML = '<button type="button" id="locCopy" class="mt-1 bg-white border border-rose-300 text-rose-700 font-semibold px-3 py-2 rounded-xl">📋 Sao chép liên kết</button>';
+            help.innerHTML = '<button type="button" id="locCopy" class="mt-1 bg-white border border-rose-300 text-rose-700 font-semibold px-3 py-2 rounded-xl">Sao chép liên kết</button>';
             help.classList.remove('hidden');
             document.getElementById('locCopy').addEventListener('click', function () {
                 if (navigator.clipboard) navigator.clipboard.writeText(location.href);
-                this.textContent = '✅ Đã sao chép, hãy dán vào Chrome/Safari';
+                this.textContent = 'Đã sao chép, hãy dán vào Chrome/Safari';
             });
         }
 
@@ -344,9 +368,16 @@
 
         // Nhớ trường đã chọn lần trước để lần sau không phải chọn lại
         try {
+            var hiddenSchool = document.getElementById('school');
+            var picks = document.querySelectorAll('input[name="schoolPick"]');
             var sv = localStorage.getItem('school');
-            if (sv) document.getElementById('school').value = sv;
-            document.getElementById('school').addEventListener('change', function () { localStorage.setItem('school', this.value); });
+            picks.forEach(function (r) {
+                if (sv && r.value === sv) { r.checked = true; hiddenSchool.value = sv; }
+                r.addEventListener('change', function () {
+                    hiddenSchool.value = this.value;
+                    try { localStorage.setItem('school', this.value); } catch (e) {}
+                });
+            });
         } catch (e) {}
     })();
     </script>
