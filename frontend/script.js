@@ -173,7 +173,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function resetButton() {
         isSubmitting = false;
         submitButton.disabled = false;
-        submitButton.innerHTML = `✅ Xác nhận điểm danh`;
+        submitButton.innerHTML = `Xác nhận có mặt`;
     }
 
     function showSuccess(name, universityRollNo, school) {
@@ -184,6 +184,7 @@ document.addEventListener("DOMContentLoaded", () => {
         form.classList.add("hidden");
         statusElement.innerText = "";
         var lb = document.getElementById("locBox"); if (lb) lb.classList.add("hidden");
+        var lh = document.getElementById("locHint"); if (lh) lh.classList.add("hidden");
         document.getElementById("successScreen").classList.remove("hidden");
         window.scrollTo(0, 0);
         if (navigator.vibrate) { try { navigator.vibrate(200); } catch (e) {} }

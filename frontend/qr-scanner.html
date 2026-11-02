@@ -14,44 +14,88 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios@1.7.9/dist/axios.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg: #F5F7FF; --surface: #FFFFFF; --line: #E2E8F0; --line-2: #94A3B8;
+            --ink: #0F172A; --ink-2: #334155; --muted: #475569;
+            --blue: #2563EB; --blue-ink: #1D4ED8; --violet: #7C3AED; --select: #EEF2FF; --violet-wash: #F3EEFF;
+            --ok: #047857; --ok-wash: #ECFDF5; --warn: #B45309; --warn-wash: #FFF7ED; --bad: #B91C1C; --bad-wash: #FEF2F2;
+            --font: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", sans-serif;
+            --ease: cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        html, body { overflow-x: clip; }
         body {
-            min-height: 100vh;
-            background: radial-gradient(circle at 15% 10%, rgba(125,211,252,.55), transparent 45%), radial-gradient(circle at 90% 85%, rgba(196,181,253,.7), transparent 50%), linear-gradient(160deg, #3b82f6 0%, #6d5df6 55%, #8b5cf6 100%);
+            min-height: 100vh; margin: 0; font-family: var(--font); color: var(--ink);
+            background: radial-gradient(1100px 600px at 0% 0%, #DBEAFE 0%, rgba(219,234,254,0) 60%), radial-gradient(900px 600px at 100% 100%, #EDE9FE 0%, rgba(237,233,254,0) 60%), var(--bg);
             background-attachment: fixed;
         }
-        .card { background: #ffffff; }
-        .field {
-            width: 100%;
-            padding: 0.75rem 1rem;
-            border: 2px solid #94a3b8;
-            border-radius: 0.9rem;
-            background: #ffffff;
-            color: #111827;
-        }
-        .field:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.18); }
+        ::selection { background: #EDE7FE; color: var(--ink); }
+        .ico { flex: none; }
+        .hidden { display: none !important; }
+        .card { background: var(--surface); border: 1px solid #E0E7FF; box-shadow: 0 1px 2px rgba(15,23,42,0.05), 0 12px 32px rgba(49,46,129,0.08); }
+        .field { width: 100%; min-height: 48px; box-sizing: border-box; padding: 0.65rem 0.9rem; border: 1px solid var(--line-2); border-radius: 12px; background: var(--surface); color: var(--ink); font-size: 16px; font-family: var(--font); }
+        .field:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.18); }
+        .lbl { display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 600; color: var(--ink); margin-bottom: 6px; }
+        .lbl .ico { color: var(--muted); }
+        .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 18px; border-radius: 12px; font-size: 16px; font-weight: 700; font-family: var(--font); cursor: pointer; transition: background-color 150ms ease, box-shadow 150ms ease, transform 120ms var(--ease), opacity 150ms ease; }
+        .btn:active { transform: scale(0.98); }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .btn-primary { color: #fff; border: 0; background: linear-gradient(135deg, var(--blue), var(--violet)); box-shadow: 0 6px 16px rgba(79, 70, 229, 0.25); }
+        .btn-primary:hover { box-shadow: 0 8px 22px rgba(79, 70, 229, 0.35); }
+        .btn-ok { color: #fff; border: 0; background: var(--ok); }
+        .btn-ok:hover { background: #065F46; }
+        .btn-danger { color: #fff; border: 0; background: var(--bad); }
+        .btn-danger:hover { background: #991B1B; }
+        .btn-soft { color: var(--ink); background: var(--surface); border: 1px solid var(--line-2); font-weight: 600; }
+        .btn-soft:hover { background: #F8FAFC; }
+        .btn-link { min-height: 44px; color: var(--blue-ink); background: transparent; border: 0; font-weight: 600; font-size: 15px; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; font-family: var(--font); }
+        .btn-link:hover { color: var(--violet); }
+        .btn-quiet { min-height: 44px; color: var(--muted); background: transparent; border: 0; font-size: 14px; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; font-family: var(--font); }
+        button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid #A5B4FC; outline-offset: 2px; }
         .spinner { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .qr-frame { padding: 6px; border-radius: 28px; background: linear-gradient(135deg, #7dd3fc, #6366f1, #a78bfa); }
-        .step-dot { width: 2rem; height: 2rem; border-radius: 9999px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; background: #e5e7eb; color: #4b5563; }
-        .step-dot.active { background: linear-gradient(135deg, #2563eb, #7c3aed); color: #fff; }
-        .step-dot.done { background: #10b981; color: #fff; }
-        .step-label { font-size: 0.72rem; color: #4b5563; margin-top: 0.25rem; font-weight: 600; }
-        .step-label.active { color: #4338ca; }
-        @keyframes flashNew { 0% { background: #86efac; transform: scale(1.03); } 100% { background: transparent; transform: scale(1); } }
-        .flash-new { animation: flashNew 2.5s ease-out; }
-        .suspect-badge { display: inline-block; margin-top: 2px; padding: 1px 8px; border-radius: 9999px; background: #fef3c7; color: #92400e; font-size: 0.72rem; font-weight: 700; border: 1px solid #fcd34d; }
-        @keyframes bump { 0% { transform: scale(1); } 40% { transform: scale(1.35); } 100% { transform: scale(1); } }
-        .bump { display: inline-block; animation: bump .5s ease-out; }
+        .qr-frame { padding: 8px; border-radius: 28px; background: linear-gradient(135deg, #38BDF8, var(--blue) 45%, var(--violet)); }
+        .step-dot { width: 2rem; height: 2rem; border-radius: 9999px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; background: #E2E8F0; color: var(--ink-2); }
+        .step-dot.active { background: linear-gradient(135deg, var(--blue), var(--violet)); color: #fff; }
+        .step-dot.done { background: var(--ok); color: #fff; }
+        .step-label { font-size: 0.8rem; color: var(--muted); margin-top: 0.3rem; font-weight: 600; }
+        .step-label.active { color: var(--blue-ink); }
+        .banner { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; font-size: 15px; font-weight: 600; }
+        .banner-ok { background: var(--ok-wash); border: 1px solid #A7F3D0; color: #065F46; }
+        .banner-warn { background: #FFFBEB; border: 1px solid #FDE68A; color: #92400E; }
+        #live-last:empty { display: none; }
+        .live-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+        .avatar { width: 38px; height: 38px; border-radius: 999px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex: none; }
+        .suspect-badge { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; padding: 2px 10px; border-radius: 999px; background: #FEF3C7; color: #92400E; font-size: 13px; font-weight: 700; }
+        .suspect-badge.bad { background: #FEE2E2; color: #991B1B; }
+        .fig { font-variant-numeric: tabular-nums; }
+        .rotate-track { height: 6px; border-radius: 999px; background: #E0E7FF; overflow: hidden; }
+        .rotate-fill { height: 100%; width: 100%; background: linear-gradient(90deg, var(--blue), var(--violet)); transform-origin: left center; transition: transform 1s linear; }
+        @keyframes flashNew { 0% { background: #DDD6FE; } 100% { background: transparent; } }
+        .flash-new { animation: flashNew 2.5s var(--ease); }
+        @keyframes bump { 0% { transform: scale(1); } 40% { transform: scale(1.25); } 100% { transform: scale(1); } }
+        .bump { display: inline-block; animation: bump .45s var(--ease); }
         /* Kích thước mã QR: nhỏ trên điện thoại, to trên laptop (theo chiều cao màn hình) */
         .qr-box { width: 16rem; height: 16rem; }
         @media (min-width: 768px) {
             .qr-box { width: min(30rem, 56vh, 40vw); height: min(30rem, 56vh, 40vw); }
         }
+        @media (prefers-reduced-motion: reduce) {
+            .btn, .rotate-fill { transition: none; }
+            .btn:active { transform: none; }
+            .flash-new, .bump { animation: none; }
+        }
     </style>
 </head>
 <body class="flex items-start justify-center p-4">
-    <div class="card w-full max-w-md md:max-w-6xl rounded-3xl shadow-2xl p-6 md:p-8 my-4">
+    <div class="card w-full max-w-md md:max-w-6xl rounded-3xl p-6 md:p-8 my-4">
+
+        <div class="flex items-center gap-3 mb-5">
+            <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--blue),var(--violet));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px">TH</div>
+            <span style="font-size:18px;font-weight:700">Điểm danh</span>
+        </div>
 
         <!-- Thanh các bước -->
         <div class="flex items-start justify-between mb-6 px-2">
@@ -59,12 +103,12 @@
                 <div id="dot1" class="step-dot active">1</div>
                 <div id="lbl1" class="step-label active">Tạo mã QR</div>
             </div>
-            <div class="flex-1 h-0.5 bg-gray-300 mt-4"></div>
+            <div class="flex-1 h-0.5 mt-4" style="background:var(--line)"></div>
             <div class="flex flex-col items-center flex-1">
                 <div id="dot2" class="step-dot">2</div>
                 <div id="lbl2" class="step-label">Sinh viên quét</div>
             </div>
-            <div class="flex-1 h-0.5 bg-gray-300 mt-4"></div>
+            <div class="flex-1 h-0.5 mt-4" style="background:var(--line)"></div>
             <div class="flex flex-col items-center flex-1">
                 <div id="dot3" class="step-dot">3</div>
                 <div id="lbl3" class="step-label">Xuất file</div>
@@ -76,128 +120,126 @@
 
         <!-- BƯỚC 1: TẠO MÃ QR -->
         <div id="panel-qr" class="text-center md:flex-1 md:min-w-0">
-            <h1 id="qr-title" class="text-2xl font-extrabold text-gray-900">Tạo mã QR điểm danh</h1>
-            <p id="qr-sub" class="text-gray-600 text-sm mt-1 mb-5">Chọn bán kính rồi bấm tạo mã để chiếu cho lớp</p>
+            <h1 id="qr-title" style="margin:0;font-size:26px;line-height:1.25;font-weight:800">Tạo mã QR điểm danh</h1>
+            <p id="qr-sub" style="margin:6px 0 20px;font-size:15px;color:var(--muted)">Chọn bán kính rồi bấm tạo mã để chiếu cho lớp</p>
 
             <div id="qr-wrap" class="hidden mb-4 mt-4">
                 <div class="flex justify-center">
                     <div class="qr-frame">
                         <div class="relative qr-box rounded-3xl bg-white">
-                            <img id="qr-image" src="" alt="Mã QR" class="w-full h-full rounded-3xl bg-white hidden">
+                            <img id="qr-image" src="" alt="Mã QR điểm danh" class="w-full h-full rounded-3xl bg-white hidden">
                             <div id="qr-loading" class="absolute inset-0 flex items-center justify-center hidden">
-                                <div class="spinner rounded-full h-12 w-12 border-t-4 border-b-4 border-indigo-500"></div>
+                                <div class="spinner rounded-full h-12 w-12 border-t-4 border-b-4" style="border-color:var(--blue) transparent var(--blue) transparent"></div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
             <audio id="bgm" src="/nhac.mp3" loop preload="none"></audio>
-            <button id="music-btn" type="button" class="hidden mx-auto mb-3 px-3 py-1.5 rounded-full bg-white border-2 border-indigo-200 text-sm font-semibold text-indigo-700">🔊 Nhạc: đang bật</button>
-            <button id="present-btn" type="button" class="hidden mx-auto mb-3 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 text-white font-bold shadow hover:opacity-90 active:scale-95 transition">🖥️ Chế độ chiếu toàn màn hình</button>
-            <p id="qr-tip" class="hidden mb-4 text-sm font-semibold text-indigo-800 bg-indigo-50 rounded-xl px-3 py-2">📍 Trước khi quét, hãy bật <b>Vị trí (GPS)</b> trên điện thoại. Khi trình duyệt hỏi, bấm <b>Cho phép</b>.</p>
 
-            <div id="error-message" class="text-rose-600 font-medium mb-3 min-h-6 text-sm"></div>
+            <div class="flex flex-wrap justify-center gap-2 mb-4">
+                <button id="music-btn" type="button" class="btn btn-soft hidden" style="min-height:44px;font-size:15px"><svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg><span id="music-label">Nhạc: đang bật</span></button>
+                <button id="present-btn" type="button" class="btn btn-primary hidden" style="min-height:44px;font-size:15px"><svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>Chiếu toàn màn hình</button>
+            </div>
+            <p id="qr-tip" class="hidden banner mb-4 text-left" style="background:#EFF6FF;border:1px solid #BFDBFE;color:#1E3A8A;font-weight:500"><svg class="ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg><span>Bật <b>Vị trí (GPS)</b> rồi quét bằng <b>Camera</b> của điện thoại. Khi được hỏi, bấm <b>Cho phép</b>.</span></p>
 
-            <div id="session-info" class="text-sm text-gray-700 mb-4 hidden bg-indigo-50 rounded-xl p-3">
+            <div id="error-message" role="alert" class="mb-3 min-h-6" style="color:var(--bad);font-weight:600;font-size:15px"></div>
+
+            <div id="session-info" class="hidden mb-4 mx-auto" style="max-width:486px">
                 <span id="session-id" class="hidden"></span>
-                <span class="font-semibold text-indigo-700">🔄 Mã tự đổi sau: <span id="expiry-time"></span></span>
-                <button id="regen-btn" type="button" class="block mx-auto mt-2 text-xs font-semibold text-indigo-700 underline disabled:opacity-50">🔄 Tạo lại mã (lấy lại vị trí)</button>
+                <div class="rotate-track" role="progressbar" aria-label="Thời gian đến lần đổi mã" aria-valuemin="0" aria-valuemax="15"><div id="rotate-fill" class="rotate-fill"></div></div>
+                <div class="flex justify-between mt-2" style="font-size:15px;color:var(--muted)">
+                    <span class="inline-flex items-center gap-2"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 15.3-6.4L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.3 6.4L3 16"/><path d="M3 21v-5h5"/></svg>Mã tự đổi sau</span>
+                    <span id="expiry-time" class="fig" style="font-weight:700;color:var(--ink-2)"></span>
+                </div>
+                <button id="regen-btn" type="button" class="btn-link mt-1 disabled:opacity-50">Sai vị trí? Tạo lại mã</button>
             </div>
 
-            <div id="qr-controls" class="max-w-sm mx-auto">
-            <label for="radius" class="block text-left text-sm font-semibold text-gray-800 mb-1">📏 Bán kính điểm danh</label>
-            <select id="radius" class="field mb-3">
-                <option value="50">50 mét (phòng nhỏ)</option>
-                <option value="100" selected>100 mét (khuyên dùng)</option>
-                <option value="150">150 mét (khu rộng)</option>
-            </select>
+            <div id="qr-controls" class="max-w-sm mx-auto text-left">
+                <label for="radius" class="lbl"><svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="1.5"/><path d="M12 12l6-4"/></svg>Bán kính điểm danh</label>
+                <select id="radius" class="field mb-4">
+                    <option value="50">50 mét (phòng nhỏ)</option>
+                    <option value="100" selected>100 mét (khuyên dùng)</option>
+                    <option value="150">150 mét (khu rộng)</option>
+                </select>
 
-            <input type="password" id="adminPassword" placeholder="🔒 Mật khẩu giảng viên" class="field mb-3">
+                <label for="adminPassword" class="lbl"><svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Mật khẩu giảng viên</label>
+                <input type="password" id="adminPassword" placeholder="Nhập mật khẩu" class="field mb-4" autocomplete="current-password">
 
-            <button id="generate-btn"
-                class="w-full bg-gradient-to-r from-blue-600 to-violet-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg hover:opacity-90 active:scale-95 transition disabled:opacity-60">
-                Tạo mã QR
-            </button>
-            <p class="text-xs text-gray-500 mt-3">📍 Cho phép vị trí: sinh viên phải ở gần bạn mới điểm danh được</p>
+                <button id="generate-btn" class="btn btn-primary w-full">Tạo mã QR</button>
+                <p class="flex items-start gap-2 mt-3" style="font-size:14px;color:var(--muted)"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg><span>Sinh viên phải ở gần bạn trong bán kính đã chọn mới điểm danh được.</span></p>
             </div>
         </div>
 
         <!-- BƯỚC 2: SINH VIÊN ĐANG ĐIỂM DANH -->
-        <div id="panel-live" class="hidden mt-6 pt-5 border-t-2 border-gray-200 md:mt-0 md:pt-0 md:border-t-0 md:border-l-2 md:pl-10 md:flex-1 md:min-w-0">
-            <div class="flex items-center justify-between mb-2">
-                <h2 class="text-lg font-extrabold text-gray-900">Sinh viên đã điểm danh</h2>
-                <div class="text-right">
-                    <span id="live-count" class="text-3xl font-extrabold text-indigo-600">0</span>
-                    <span class="text-sm text-gray-600"> người</span>
+        <div id="panel-live" class="hidden mt-6 pt-5 border-t md:mt-0 md:pt-0 md:border-t-0 md:border-l md:pl-10 md:flex-1 md:min-w-0" style="border-color:var(--line)">
+            <div class="flex items-end justify-between mb-2">
+                <div>
+                    <h2 style="margin:0;font-size:20px;font-weight:700">Đã điểm danh</h2>
+                    <p id="live-status" style="margin:2px 0 0;font-size:14px;color:var(--muted)">Tự cập nhật mỗi 5 giây (hôm nay)</p>
+                </div>
+                <div class="text-right" aria-live="polite">
+                    <span id="live-count" class="fig" style="font-size:52px;line-height:1;font-weight:800;color:var(--blue-ink)">0</span>
+                    <span style="font-size:16px;font-weight:600;color:var(--muted)"> người</span>
                 </div>
             </div>
-            <p id="live-last" class="text-sm font-bold text-emerald-700 mb-1 min-h-5"></p>
-            <p id="live-warn" class="hidden text-sm font-bold text-amber-700 mb-1"></p>
-            <p id="live-status" class="text-xs text-gray-500 mb-2">Tự cập nhật mỗi 5 giây (hôm nay)</p>
-            <div id="live-list" class="max-h-48 md:max-h-[58vh] overflow-y-auto rounded-xl border-2 border-gray-200 divide-y divide-gray-100 text-sm text-gray-800 bg-white"></div>
-            <button id="end-btn"
-                class="w-full mt-4 bg-emerald-600 text-white font-bold py-3 rounded-xl shadow hover:bg-emerald-700 active:scale-95 transition">
-                ✅ Kết thúc buổi &amp; xuất file
-            </button>
+            <p id="live-last" class="banner banner-ok mb-2" style="margin-top:8px"></p>
+            <p id="live-warn" class="hidden banner banner-warn mb-2"><svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9.5 17h-19L12 3z"/><path d="M12 10v4"/><path d="M12 17h.01"/></svg><span id="live-warn-text"></span></p>
+            <div id="live-list" class="max-h-64 md:max-h-[52vh] overflow-y-auto rounded-2xl text-gray-800 bg-white" style="border:1px solid var(--line)"></div>
+            <button id="end-btn" class="btn btn-ok w-full mt-4" style="min-height:52px"><svg class="ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Kết thúc buổi &amp; xuất file</button>
         </div>
 
         <!-- BƯỚC 3: XUẤT FILE -->
-        <div id="panel-export" class="hidden mt-6 pt-5 border-t-2 border-gray-200 md:mt-0 md:pt-0 md:border-t-0 md:border-l-2 md:pl-10 md:flex-1 md:min-w-0">
-            <h2 class="text-lg font-extrabold text-gray-900 mb-1">Xuất file Excel</h2>
-            <p class="text-xs text-gray-600 mb-3">Điền kết quả điểm danh vào file danh sách lớp của bạn (đúng mẫu: dòng 2 là tiêu đề, từ dòng 3 là sinh viên).</p>
+        <div id="panel-export" class="hidden mt-6 pt-5 border-t md:mt-0 md:pt-0 md:border-t-0 md:border-l md:pl-10 md:flex-1 md:min-w-0" style="border-color:var(--line)">
+            <h2 style="margin:0 0 4px;font-size:20px;font-weight:700">Xuất file Excel</h2>
+            <p style="margin:0 0 16px;font-size:14px;color:var(--muted)">Điền kết quả vào file danh sách lớp của bạn (dòng 2 là tiêu đề, từ dòng 3 là sinh viên).</p>
 
-            <label for="dateInput" class="block text-sm font-semibold text-gray-800 mb-1">📅 Ngày điểm danh</label>
-            <input type="date" id="dateInput" class="field mb-3">
+            <label for="dateInput" class="lbl"><svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>Ngày điểm danh</label>
+            <input type="date" id="dateInput" class="field mb-4">
 
-            <label for="schoolSel" class="block text-sm font-semibold text-gray-800 mb-1">🏫 Trường cần xuất</label>
-            <select id="schoolSel" class="field mb-3">
-                <option value="">— Chọn trường —</option>
+            <label for="schoolSel" class="lbl"><svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10l9-6 9 6-9 6-9-6z"/><path d="M7 12v4c0 1.5 2.2 3 5 3s5-1.5 5-3v-4"/></svg>Trường cần xuất</label>
+            <select id="schoolSel" class="field mb-4">
+                <option value="">Chọn trường</option>
                 <option value="USSH">USSH</option>
                 <option value="UEH">UEH</option>
                 <option value="VLU">VLU</option>
                 <option value="DVSC">DVSC</option>
             </select>
 
-            <label for="rosterFile" class="block text-sm font-semibold text-gray-800 mb-1">📁 File danh sách lớp (.xlsx)</label>
-            <input type="file" id="rosterFile" accept=".xlsx" class="field mb-3">
+            <label for="rosterFile" class="lbl"><svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h6"/></svg>File danh sách lớp (.xlsx)</label>
+            <input type="file" id="rosterFile" accept=".xlsx" class="field mb-4">
 
-            <button id="exportBtn"
-                class="w-full bg-gradient-to-r from-blue-600 to-violet-600 text-white font-bold py-3 rounded-xl shadow-lg hover:opacity-90 active:scale-95 transition disabled:opacity-60">
-                ⬇️ Xuất file Excel
-            </button>
-            <p id="msg" class="text-center mt-4 text-sm font-medium"></p>
-            <div id="detail" class="mt-2 text-sm text-gray-700"></div>
+            <button id="exportBtn" class="btn btn-primary w-full"><svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="M7 10l5 5 5-5"/><path d="M5 20h14"/></svg><span>Xuất file Excel</span></button>
+            <p id="msg" role="status" class="text-center mt-4 text-sm font-medium"></p>
+            <div id="detail" class="mt-2 text-sm" style="color:var(--ink-2)"></div>
 
-            <button id="deleteBtn"
-                class="hidden w-full mt-3 bg-rose-600 text-white font-bold py-3 rounded-xl shadow hover:bg-rose-700 active:scale-95 transition disabled:opacity-60">
-                🗑️ Xóa dữ liệu điểm danh ngày này
-            </button>
-            <p id="delete-hint" class="hidden text-xs text-gray-600 mt-1 text-center">Chỉ nên xóa sau khi đã tải file. Xóa xong, sinh viên có thể điểm danh lại cho buổi hoặc lớp tiếp theo trong ngày.</p>
+            <button id="deleteBtn" class="btn btn-danger w-full mt-3 hidden"><svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/><path d="M9 7V4h6v3"/></svg><span>Xóa dữ liệu điểm danh ngày này</span></button>
+            <p id="delete-hint" class="hidden mt-1 text-center" style="font-size:13px;color:var(--muted)">Chỉ nên xóa sau khi đã tải file. Xóa xong, sinh viên có thể điểm danh lại cho buổi hoặc lớp tiếp theo trong ngày.</p>
 
-            <button id="deleteAnyBtn" class="w-full mt-4 text-xs text-gray-500 underline">Xóa dữ liệu ngày này mà không xuất file (dữ liệu thử)</button>
-            <button id="back-btn" class="w-full mt-3 text-sm text-indigo-700 underline">← Quay lại tạo mã mới</button>
+            <button id="deleteAnyBtn" class="btn-quiet w-full mt-3">Xóa dữ liệu ngày này mà không xuất file (dữ liệu thử)</button>
+            <button id="back-btn" class="btn-link w-full mt-1 inline-flex items-center justify-center gap-2"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg>Quay lại tạo mã mới</button>
         </div>
 
         </div>
-        <p class="text-center text-sm text-gray-700 mt-6 select-none">© 2026 <b>TH</b> · Bản quyền thuộc về <b>@tbmt</b></p>
+        <p class="text-center mt-6 select-none" style="font-size:14px;color:var(--muted)">© 2026 <b style="color:var(--ink-2)">TH</b> · Bản quyền thuộc về <b style="color:var(--ink-2)">@tbmt</b></p>
     </div>
 
     <!-- Chế độ chiếu toàn màn hình -->
-    <div id="present" class="hidden fixed inset-0 z-40 flex flex-col items-center justify-center p-4 text-white" style="background:radial-gradient(circle at 15% 10%,rgba(125,211,252,.55),transparent 45%),radial-gradient(circle at 90% 85%,rgba(196,181,253,.7),transparent 50%),linear-gradient(160deg,#3b82f6 0%,#6d5df6 55%,#8b5cf6 100%)">
-        <button id="present-exit" type="button" class="absolute top-4 right-4 px-4 py-2 rounded-xl bg-white/20 hover:bg-white/30 font-bold">✕ Thoát</button>
-        <h1 class="text-2xl md:text-4xl font-extrabold mb-4 text-center">Quét mã QR để điểm danh</h1>
-        <div class="qr-frame">
-            <div class="bg-white rounded-3xl flex items-center justify-center" style="width:min(72vh,88vw);height:min(72vh,88vw)">
-                <img id="present-img" src="" alt="Mã QR" class="w-full h-full rounded-3xl">
+    <div id="present" class="hidden fixed inset-0 z-40 flex flex-col items-center justify-center p-4 text-white" style="background:radial-gradient(circle at 15% 10%,rgba(125,211,252,.45),transparent 45%),radial-gradient(circle at 90% 85%,rgba(196,181,253,.55),transparent 50%),linear-gradient(160deg,#1D4ED8 0%,#4F46E5 55%,#6D28D9 100%);font-family:var(--font)">
+        <button id="present-exit" type="button" class="btn absolute top-4 right-4" style="min-height:44px;background:rgba(255,255,255,0.18);color:#fff;border:1px solid rgba(255,255,255,0.35)"><svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>Thoát</button>
+        <h1 class="text-2xl md:text-4xl mb-4 text-center" style="font-weight:800">Quét mã QR để điểm danh</h1>
+        <div class="qr-frame" style="background:rgba(255,255,255,0.9)">
+            <div class="bg-white rounded-3xl flex items-center justify-center" style="width:min(70vh,88vw);height:min(70vh,88vw)">
+                <img id="present-img" src="" alt="Mã QR điểm danh" class="w-full h-full rounded-3xl">
             </div>
         </div>
         <div class="mt-5 flex flex-wrap items-center justify-center gap-x-10 gap-y-2">
-            <div class="text-center"><span id="present-count" class="text-5xl md:text-6xl font-extrabold">0</span><span class="text-xl md:text-2xl ml-2">người đã điểm danh</span></div>
-            <div class="text-lg md:text-2xl font-semibold">🔄 Mã đổi sau: <span id="present-expiry"></span></div>
+            <div class="text-center"><span id="present-count" class="fig text-5xl md:text-6xl" style="font-weight:800">0</span><span class="text-xl md:text-2xl ml-2">người đã điểm danh</span></div>
+            <div class="text-lg md:text-2xl inline-flex items-center gap-2" style="font-weight:600"><svg class="ico" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 15.3-6.4L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.3 6.4L3 16"/><path d="M3 21v-5h5"/></svg>Mã đổi sau <span id="present-expiry" class="fig"></span></div>
         </div>
-        <p class="absolute bottom-3 right-4 text-xs md:text-sm text-white/70 select-none">© 2026 TH · @tbmt</p>
-        <p id="present-last" class="mt-3 text-lg md:text-2xl font-bold text-center min-h-8"></p>
-        <p class="mt-2 text-sm md:text-lg text-white/90 text-center">📍 Hãy bật Vị trí (GPS) trên điện thoại trước khi quét, rồi bấm Cho phép</p>
+        <p class="absolute bottom-3 right-4 text-xs md:text-sm select-none" style="color:rgba(255,255,255,0.75)">© 2026 TH · @tbmt</p>
+        <p id="present-last" class="mt-3 text-lg md:text-2xl text-center min-h-8" style="font-weight:700"></p>
+        <p class="mt-2 text-sm md:text-lg text-center inline-flex items-center gap-2" style="color:rgba(255,255,255,0.92)"><svg class="ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Bật Vị trí (GPS) trên điện thoại trước khi quét, rồi bấm Cho phép</p>
     </div>
 
     <!-- Hộp xác nhận xóa (thay cho hộp thoại của trình duyệt, vì Chrome hay chặn hộp thoại) -->
@@ -210,8 +252,8 @@
                 <input id="cm-input" type="text" class="field" autocomplete="off" autocapitalize="characters">
             </div>
             <div class="flex gap-2">
-                <button id="cm-cancel" type="button" class="flex-1 py-3 rounded-xl border-2 border-gray-300 font-semibold text-gray-700">Hủy</button>
-                <button id="cm-ok" type="button" class="flex-1 py-3 rounded-xl bg-rose-600 text-white font-bold disabled:opacity-60">🗑️ Xóa</button>
+                <button id="cm-cancel" type="button" class="btn btn-soft flex-1">Hủy</button>
+                <button id="cm-ok" type="button" class="btn btn-danger flex-1"><svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/><path d="M9 7V4h6v3"/></svg>Xóa</button>
             </div>
         </div>
     </div>
@@ -236,7 +278,7 @@
             var dot = $('dot' + i), lbl = $('lbl' + i);
             dot.className = 'step-dot' + (i < n ? ' done' : (i === n ? ' active' : ''));
             lbl.className = 'step-label' + (i === n ? ' active' : '');
-            dot.textContent = i < n ? '✓' : String(i);
+            if (i < n) dot.innerHTML = "<svg class=\"ico\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12.5l4.5 4.5L19 7.5\"/></svg>"; else dot.textContent = String(i);
         }
     }
 
@@ -262,6 +304,11 @@
             }
             var secs = Math.max(0, Math.ceil((nextRotateAt - Date.now()) / 1000));
             $('expiry-time').textContent = secs + ' giây';
+            var fill = $('rotate-fill');
+            if (fill) {
+                fill.style.transform = 'scaleX(' + Math.min(1, secs / (ROTATE_MS / 1000)) + ')';
+                fill.parentNode.setAttribute('aria-valuenow', String(secs));
+            }
         }
         show();
         expiryInterval = setInterval(function () { remaining -= 1000; show(); }, 1000);
@@ -306,7 +353,8 @@
         var b = $('music-btn');
         if (musicMissing) { b.classList.add('hidden'); return; }
         b.classList.remove('hidden');
-        b.textContent = musicOn ? '🔊 Nhạc: đang bật' : '🔇 Nhạc: đang tắt';
+        $('music-label').textContent = musicOn ? 'Nhạc: đang bật' : 'Nhạc: đang tắt';
+        b.setAttribute('aria-pressed', musicOn ? 'true' : 'false');
     }
     function startMusic() {
         var a = $('bgm');
@@ -475,61 +523,73 @@
         knownIds = new Set(ids);
         var nFlag = rows.filter(function (r) { return r.flag || r.locFlag || r.privFlag; }).length;
         var warn = $('live-warn');
-        if (nFlag) { warn.textContent = '⚠ ' + nFlag + ' bạn có dấu hiệu bất thường (xem nhãn cảnh báo trong danh sách)'; warn.classList.remove('hidden'); }
+        if (nFlag) { $('live-warn-text').textContent = nFlag + ' bạn có dấu hiệu bất thường, xem nhãn trong danh sách'; warn.classList.remove('hidden'); }
         else { warn.classList.add('hidden'); }
         if (newOnes.length || rows.length > prevCount && prevCount > 0) {
             var c = $('live-count'); c.classList.remove('bump'); void c.offsetWidth; c.classList.add('bump');
         }
         if (newOnes.length) {
             var last = newOnes[newOnes.length - 1];
-            $('live-last').textContent = '🎉 Vừa điểm danh: ' + (last.name || last.universityRollNo);
-            $('present-last').textContent = '🎉 Vừa điểm danh: ' + (last.name || last.universityRollNo);
+            $('live-last').textContent = 'Vừa điểm danh: ' + (last.name || last.universityRollNo);
+            $('present-last').textContent = 'Vừa điểm danh: ' + (last.name || last.universityRollNo);
         }
         var freshSet = new Set(newOnes.map(function (r) { return String(r.universityRollNo || ''); }));
         var list = $('live-list');
         list.innerHTML = '';
         if (!rows.length) {
             var empty = document.createElement('div');
-            empty.className = 'p-3 text-gray-500 text-center';
-            empty.textContent = 'Chưa có ai điểm danh';
+            empty.style.cssText = 'padding:28px 16px;text-align:center;color:var(--muted);font-size:15px;line-height:1.5';
+            empty.textContent = 'Chưa có ai điểm danh. Tên sinh viên sẽ hiện ở đây ngay khi các bạn quét mã.';
             list.appendChild(empty);
             return;
         }
+        var AV = [['#DBEAFE','#1E40AF'],['#EDE9FE','#5B21B6'],['#E0F2FE','#075985'],['#FCE7F3','#9D174D'],['#DCFCE7','#166534'],['#FEF3C7','#92400E']];
+        function initials(name) {
+            var p = String(name || '').trim().split(/\s+/).filter(Boolean);
+            if (!p.length) return '?';
+            var a = p.length > 1 ? p[p.length - 2][0] : '';
+            return (a + p[p.length - 1][0]).toUpperCase();
+        }
+        function badge(cls, iconHtml, text) {
+            var el = document.createElement('span');
+            el.className = 'suspect-badge' + (cls ? ' ' + cls : '');
+            el.innerHTML = iconHtml;
+            el.appendChild(document.createTextNode(text));
+            return el;
+        }
         rows.slice().sort(function (a, b) { return String(b.time || '').localeCompare(String(a.time || '')); })
-            .forEach(function (r) {
+            .forEach(function (r, idx, arr) {
                 var row = document.createElement('div');
-                row.className = 'flex items-center justify-between px-3 py-2 md:py-3 md:text-base' + (freshSet.has(String(r.universityRollNo || '')) ? ' flash-new' : '');
+                var fresh = freshSet.has(String(r.universityRollNo || ''));
+                row.className = 'live-row' + (fresh ? ' flash-new' : '');
+                if (idx < arr.length - 1) row.style.borderBottom = '1px solid var(--line)';
+                var key = String(r.universityRollNo || r.name || '');
+                var h = 0; for (var k = 0; k < key.length; k++) h = (h * 31 + key.charCodeAt(k)) >>> 0;
+                var col = AV[h % AV.length];
+                var av = document.createElement('div');
+                av.className = 'avatar';
+                av.style.background = col[0]; av.style.color = col[1];
+                av.textContent = initials(r.name);
+                av.setAttribute('aria-hidden', 'true');
                 var left = document.createElement('div');
+                left.style.cssText = 'flex:1 1 auto;min-width:0;display:flex;flex-direction:column';
                 var nm = document.createElement('div');
-                nm.className = 'font-semibold';
+                nm.style.cssText = 'font-weight:700;font-size:16px;overflow-wrap:anywhere';
                 nm.textContent = r.name || '(không tên)';
                 var id = document.createElement('div');
-                id.className = 'text-xs text-gray-500';
+                id.className = 'fig';
+                id.style.cssText = 'font-size:13px;color:var(--muted)';
                 id.textContent = r.universityRollNo || '';
                 left.appendChild(nm);
                 left.appendChild(id);
-                if (r.flag) {
-                    var bd = document.createElement('div');
-                    bd.className = 'suspect-badge';
-                    bd.textContent = '⚠ Nghi trùng thiết bị' + (r.flagWith && r.flagWith.length ? ' với ' + r.flagWith.join(', ') : '');
-                    left.appendChild(bd);
-                }
-                if (r.privFlag) {
-                    var pb = document.createElement('div');
-                    pb.className = 'suspect-badge';
-                    pb.textContent = '🕶 Nghi dùng tab ẩn danh';
-                    left.appendChild(pb);
-                }
-                if (r.locFlag) {
-                    var lb = document.createElement('div');
-                    lb.className = 'suspect-badge';
-                    lb.style.background = '#fee2e2'; lb.style.color = '#991b1b'; lb.style.borderColor = '#fca5a5';
-                    lb.textContent = '📍 Vị trí nghi giả: ' + r.locFlag;
-                    left.appendChild(lb);
-                }
+                if (r.flag) left.appendChild(badge('', '<svg class="ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>', 'Nghi trùng thiết bị' + (r.flagWith && r.flagWith.length ? ' với ' + r.flagWith.join(', ') : '')));
+                if (r.privFlag) left.appendChild(badge('', '<svg class="ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 6.1A10.6 10.6 0 0 1 12 6c5 0 9 6 9 6a17.6 17.6 0 0 1-3.2 3.8"/><path d="M6.4 6.5C4.3 8 3 12 3 12s4 6 9 6a9.7 9.7 0 0 0 4.3-1"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>', 'Nghi dùng tab ẩn danh'));
+                if (r.locFlag) left.appendChild(badge('bad', '<svg class="ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><path d="M10 8l4 4M14 8l-4 4"/></svg>', 'Vị trí nghi giả: ' + r.locFlag));
                 var tm = document.createElement('div');
-                tm.className = 'text-xs text-gray-600 font-mono';
+                tm.className = 'fig';
+                tm.style.cssText = 'font-size:14px;font-weight:600;color:var(--ink-2)';
                 tm.textContent = String(r.time || '').slice(0, 5);
+                row.appendChild(av);
                 row.appendChild(left);
                 row.appendChild(tm);
                 list.appendChild(row);
@@ -659,7 +719,8 @@
     function setMsg(text, ok) {
         var el = $('msg');
         el.textContent = text;
-        el.className = 'text-center mt-4 text-sm font-medium ' + (ok ? 'text-emerald-700' : 'text-rose-600');
+        el.className = 'text-center mt-4';
+        el.style.cssText = 'font-size:15px;font-weight:600;color:' + (ok ? 'var(--ok)' : 'var(--bad)');
     }
 
     function endSession() {
@@ -697,7 +758,7 @@
         if (!file) return setMsg('Hãy chọn file danh sách lớp (.xlsx).', false);
 
         btn.disabled = true;
-        btn.textContent = 'Đang xử lý...';
+        btn.querySelector('span').textContent = 'Đang xử lý...';
         try {
             var res = await fetch(API_BASE + '/api/export/attendance?date=' + encodeURIComponent(date) + '&school=' + encodeURIComponent(school), {
                 headers: { 'x-admin-password': pw }
@@ -718,7 +779,7 @@
             a.remove();
             setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
 
-            setMsg('✅ Đã xuất file: ' + result.present + ' / ' + result.total + ' sinh viên có mặt.', true);
+            setMsg('Đã xuất file: ' + result.present + ' / ' + result.total + ' sinh viên có mặt.', true);
             lastExportedDate = date;
             lastExportedSchool = school;
             try { localStorage.setItem('school', school); } catch (e) {}
@@ -727,7 +788,7 @@
             if (result.extras.length) {
                 var box = document.createElement('div');
                 box.className = 'bg-amber-50 border border-amber-300 rounded-xl p-3';
-                box.appendChild(document.createTextNode('⚠️ ' + result.extras.length + ' sinh viên điểm danh nhưng không có trong danh sách (đã thêm cuối bảng, tô vàng): ' +
+                box.appendChild(document.createTextNode(result.extras.length + ' sinh viên điểm danh nhưng không có trong danh sách (đã thêm cuối bảng, tô vàng): ' +
                     result.extras.map(function (r) { return String(r.universityRollNo); }).join(', ') + '. Thường do gõ sai MSSV.'));
                 detail.appendChild(box);
             }
@@ -735,7 +796,7 @@
             setMsg(e.message || 'Có lỗi xảy ra', false);
         } finally {
             btn.disabled = false;
-            btn.textContent = '⬇️ Xuất file Excel';
+            btn.querySelector('span').textContent = 'Xuất file Excel';
         }
     }
 
@@ -780,9 +841,9 @@
 
         deleting = true;
         var btns = [$('deleteBtn'), $('deleteAnyBtn')];
-        var oldText = $('deleteBtn').textContent;
+        var delLabel = $('deleteBtn').querySelector('span'); var oldText = delLabel.textContent;
         btns.forEach(function (b) { b.disabled = true; });
-        $('deleteBtn').textContent = 'Đang xóa...';
+        delLabel.textContent = 'Đang xóa...';
         setMsg('Đang xóa dữ liệu, vui lòng đợi...', true);
 
         // Máy chủ miễn phí đôi khi "ngủ" nên có thể phản hồi chậm: tự thử lại tối đa 3 lần
@@ -804,7 +865,7 @@
                         throw Object.assign(new Error(json.message || 'Không xóa được dữ liệu'), { final: true });
                     }
                     if (json.deleted > 0) {
-                        setMsg('🗑️ Đã xóa ' + json.deleted + ' bản ghi điểm danh ' + school + ' ngày ' + label + '. Bạn có thể tạo mã QR cho buổi hoặc lớp tiếp theo.', true);
+                        setMsg('Đã xóa ' + json.deleted + ' bản ghi điểm danh ' + school + ' ngày ' + label + '. Bạn có thể tạo mã QR cho buổi hoặc lớp tiếp theo.', true);
                     } else {
                         setMsg('Không có bản ghi nào của ' + school + ' ngày ' + label + ' để xóa (có thể đã xóa rồi).', true);
                     }
@@ -829,7 +890,7 @@
         } finally {
             deleting = false;
             btns.forEach(function (b) { b.disabled = false; });
-            $('deleteBtn').textContent = oldText;
+            delLabel.textContent = oldText;
         }
     }
 
